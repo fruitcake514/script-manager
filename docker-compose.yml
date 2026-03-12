@@ -11,5 +11,4 @@ services:
       - "9051-9075:9051-9075"
     volumes:
       - ./script-manager/scripts:/scripts
-      - ./script-manager/data:/app/data
     restart: unless-stopped
