@@ -1,0 +1,15 @@
+services:
+  script-manager:
+    build:
+      context: https://github.com/fruitcake514/script-manager.git
+    container_name: script-manager
+    environment:
+      - PUID=568
+      - PGID=568
+    ports:
+      - "9999:8080"
+      - "10000-10010:10000-10010"
+    volumes:
+      - /mnt/pool1/appdata/script-manager/scripts:/scripts
+      - /mnt/pool1/appdata/script-manager/data:/app/data
+    restart: unless-stopped
