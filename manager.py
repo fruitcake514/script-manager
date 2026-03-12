@@ -85,6 +85,16 @@ def run_script(script_name):
 def stop_script(script_name):
     proc = processes.pop(script_name, None)
     if proc and proc.poll() is None:
+        try:
+            # Kill entire process tree so child processes release their ports
+            parent = psutil.Process(proc.pid)
+            for child in parent.children(recursive=True):
+                try:
+                    child.kill()
+                except psutil.NoSuchProcess:
+                    pass
+        except psutil.NoSuchProcess:
+            pass
         proc.terminate()
         try:
             proc.wait(timeout=5)
@@ -248,3 +258,4 @@ if __name__ == "__main__":
     print(f"[manager] Starting Flask on 0.0.0.0:8080", flush=True)
     start_all_scripts()
     app.run(host="0.0.0.0", port=8080, threaded=True)
+
