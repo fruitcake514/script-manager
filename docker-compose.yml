@@ -7,9 +7,9 @@ services:
       - PUID=xxx
       - PGID=xxx
     ports:
-      - "9999:8080"
-      - "10000-10010:10000-10010"
+      - "9050:8080"
+      - "9051-9075:9051-9075"
     volumes:
-      - ./scripts:/scripts
-      - ./data:/app/data
+      - ./script-manager/scripts:/scripts
+      - ./script-manager/data:/app/data
     restart: unless-stopped
