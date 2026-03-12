@@ -11,7 +11,7 @@ from flask_cors import CORS
 
 SCRIPTS_DIR = "/scripts"
 VENV_DIR_NAME = "venv"
-ALLOWED_PORTS = set(range(10000, 10010))
+ALLOWED_PORTS = set(range(9051, 9075))
 LOG_MAX_LINES = 500
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "build"), static_url_path="")
