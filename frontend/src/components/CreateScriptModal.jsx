@@ -113,25 +113,25 @@ const styles = {
     display: "flex", alignItems: "center", justifyContent: "space-between",
     padding: "16px 20px", borderBottom: "1px solid #222",
   },
-  modalTitle: { margin: 0, fontSize: 16, color: "#fff", fontWeight: 700 },
+  modalTitle: { margin: 0, fontSize: 16, color: "#4a9eff", fontWeight: 700 },
   closeBtn: {
-    background: "transparent", border: "none", color: "#555",
+    background: "transparent", border: "none", color: "#808080",
     cursor: "pointer", fontSize: 16, fontFamily: "inherit",
   },
   field: { padding: "16px 20px 0" },
-  label: { display: "block", fontSize: 11, color: "#666", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" },
+  label: { display: "block", fontSize: 11, color: "#a0a0a0", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" },
   input: {
     width: "100%", padding: "8px 12px", background: "#0f0f0f",
     border: "1px solid #2a2a2a", borderRadius: 6, color: "#e0e0e0",
     fontSize: 13, fontFamily: "inherit", boxSizing: "border-box",
   },
-  hint: { color: "#444", fontSize: 11, marginTop: 4, display: "block" },
+  hint: { color: "#808080", fontSize: 11, marginTop: 4, display: "block" },
   tabBar: {
     display: "flex", borderBottom: "1px solid #222", padding: "0 20px", marginTop: 16,
   },
   tab: {
     padding: "8px 14px", background: "transparent", border: "none",
-    borderBottom: "2px solid transparent", color: "#555",
+    borderBottom: "2px solid transparent", color: "#808080",
     cursor: "pointer", fontSize: 12, fontFamily: "inherit",
   },
   tabActive: { color: "#e0e0e0", borderBottomColor: "#1a6ef5" },
@@ -152,7 +152,7 @@ const styles = {
   },
   cancelBtn: {
     padding: "8px 16px", background: "transparent", border: "1px solid #333",
-    color: "#888", borderRadius: 6, cursor: "pointer", fontSize: 13, fontFamily: "inherit",
+    color: "#a0a0a0", borderRadius: 6, cursor: "pointer", fontSize: 13, fontFamily: "inherit",
   },
   createBtn: {
     padding: "8px 18px", background: "#1a6ef5", color: "#fff",

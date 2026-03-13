@@ -189,15 +189,24 @@ export default function ScriptCard({ script, refresh }) {
           {tab === "files" && (
             <div style={s.fileList}>
               {files.length === 0
-                ? <span style={{ color: "#444", fontSize: 12 }}>No files found.</span>
+                ? <span style={{ color: "#a0a0a0", fontSize: 12 }}>No files found.</span>
                 : files.map(f => (
-                  <div key={f} style={s.fileRow}>
-                    <span style={s.fileIcon}>{getFileIcon(f)}</span>
-                    <span style={s.fileName}>{f}</span>
-                    {isEditable(f)
-                      ? <button style={s.editBtn} onClick={() => setEditingFile(f)}>Edit</button>
-                      : <span style={s.noEdit}>binary</span>
-                    }
+                  <div key={f.path} style={s.fileRow}>
+                    <span style={s.fileIcon}>{f.type === "directory" ? "📁" : getFileIcon(f.path)}</span>
+                    <span style={{...s.fileName, fontWeight: f.type === "directory" ? 700 : 400}}>{f.path}</span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {f.type === "file" && (
+                        isEditable(f.path)
+                          ? <button style={s.editBtn} onClick={() => setEditingFile(f.path)}>Edit</button>
+                          : <span style={s.noEdit}>binary</span>
+                      )}
+                      <button style={s.delFileBtn} onClick={async () => {
+                        if (confirm(`Delete ${f.type} "${f.path}"?`)) {
+                          await fetch(`/api/scripts/${script.name}/files/${f.path}`, { method: "DELETE" });
+                          fetchFiles();
+                        }
+                      }}>🗑</button>
+                    </div>
                   </div>
                 ))
               }
@@ -262,10 +271,10 @@ const s = {
   btnGreen:  { padding: "5px 12px", background: "#14532d", color: "#86efac", border: "1px solid #166534", borderRadius: 5, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600 },
   btnRed:    { padding: "5px 12px", background: "#450a0a", color: "#fca5a5", border: "1px solid #7f1d1d", borderRadius: 5, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600 },
   btnOrange: { padding: "5px 12px", background: "#431407", color: "#fdba74", border: "1px solid #7c2d12", borderRadius: 5, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600 },
-  btnIcon:   { padding: "5px 9px", background: "transparent", border: "1px solid #2a2a2a", color: "#6b7280", borderRadius: 5, cursor: "pointer", fontSize: 12, fontFamily: "inherit" },
+  btnIcon:   { padding: "5px 9px", background: "transparent", border: "1px solid #2a2a2a", color: "#86efac", borderRadius: 5, cursor: "pointer", fontSize: 12, fontFamily: "inherit" },
   panel: { borderTop: "1px solid #1e1e1e" },
   tabBar: { display: "flex", borderBottom: "1px solid #1e1e1e", padding: "0 12px", background: "#111" },
-  tab: { padding: "8px 14px", background: "transparent", border: "none", borderBottom: "2px solid transparent", color: "#4a4a4a", cursor: "pointer", fontSize: 12, fontFamily: "inherit" },
+  tab: { padding: "8px 14px", background: "transparent", border: "none", borderBottom: "2px solid transparent", color: "#808080", cursor: "pointer", fontSize: 12, fontFamily: "inherit" },
   tabActive: { color: "#e0e0e0", borderBottomColor: "#4a9eff" },
   logBox: {
     background: "#0a0a0a", padding: "12px 16px", height: 240,
@@ -280,5 +289,6 @@ const s = {
   fileIcon: { fontSize: 14, flexShrink: 0 },
   fileName: { fontSize: 13, color: "#c0c0c0", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   editBtn:  { padding: "3px 10px", background: "#0d1f35", color: "#4a9eff", border: "1px solid #1a3a5c", borderRadius: 4, cursor: "pointer", fontSize: 11, fontFamily: "inherit" },
-  noEdit:   { fontSize: 10, color: "#333", fontStyle: "italic" },
+  delFileBtn: { padding: "3px 8px", background: "transparent", color: "#6b7280", border: "1px solid #2a2a2a", borderRadius: 4, cursor: "pointer", fontSize: 11, fontFamily: "inherit" },
+  noEdit:   { fontSize: 10, color: "#808080", fontStyle: "italic" },
 };

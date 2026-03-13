@@ -10,6 +10,7 @@ function emptyForm() {
     time: "08:00",
     days: [0, 1, 2, 3, 4, 5, 6],
     delay_seconds: 0,
+    duration_seconds: 0,
     enabled: true,
   };
 }
@@ -174,9 +175,22 @@ export default function SchedulerModal({ scriptName, onClose }) {
                   <input style={{ ...s.input, width: 80 }} type="number" min="0"
                     value={form.delay_seconds}
                     onChange={e => setForm(f => ({ ...f, delay_seconds: parseInt(e.target.value) || 0 }))} />
-                  <span style={{ color: "#555", fontSize: 12 }}>seconds ({fmtDelay(form.delay_seconds)})</span>
+                  <span style={{ color: "#a0a0a0", fontSize: 12 }}>seconds</span>
                 </div>
               </div>
+
+              {/* Duration (only for start) */}
+              {form.action === "start" && (
+                <div style={s.field}>
+                  <label style={s.label}>Stop after (duration)</label>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input style={{ ...s.input, width: 80 }} type="number" min="0"
+                      value={form.duration_seconds}
+                      onChange={e => setForm(f => ({ ...f, duration_seconds: parseInt(e.target.value) || 0 }))} />
+                    <span style={{ color: "#a0a0a0", fontSize: 12 }}>seconds (0 = forever)</span>
+                  </div>
+                </div>
+              )}
 
               {/* Days */}
               <div style={{ ...s.field, gridColumn: "1 / -1" }}>
@@ -239,7 +253,14 @@ export default function SchedulerModal({ scriptName, onClose }) {
 
                 {/* Delay */}
                 {s2.delay_seconds > 0 && (
-                  <span style={s.schedDelay}>+{fmtDelay(s2.delay_seconds)}</span>
+                  <span style={s.schedDelay}>+{fmtDelay(s2.delay_seconds)} wait</span>
+                )}
+
+                {/* Duration */}
+                {s2.duration_seconds > 0 && (
+                  <span style={{ ...s.schedDelay, background: "#1e1b4b", borderColor: "#312e81", color: "#a5b4fc" }}>
+                    run {fmtDelay(s2.duration_seconds)}
+                  </span>
                 )}
 
                 {/* Label */}
@@ -269,35 +290,35 @@ const s = {
   overlay: { position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, fontFamily:FONT },
   modal:   { background:"#141414", border:"1px solid #222", borderRadius:10, width:"min(780px,96vw)", maxHeight:"90vh", display:"flex", flexDirection:"column", overflow:"hidden" },
   header:  { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 18px", borderBottom:"1px solid #1e1e1e", background:"#161616", flexShrink:0 },
-  title:   { fontSize:15, fontWeight:700, color:"#e0e0e0" },
-  sub:     { fontSize:13, color:"#555" },
+  title:   { fontSize:15, fontWeight:700, color:"#4a9eff" },
+  sub:     { fontSize:13, color:"#a0a0a0" },
   addBtn:  { padding:"6px 14px", background:"#1a6ef5", color:"#fff", border:"none", borderRadius:5, cursor:"pointer", fontSize:12, fontFamily:FONT, fontWeight:600 },
-  closeBtn:{ background:"transparent", border:"none", color:"#555", cursor:"pointer", fontSize:15, fontFamily:FONT },
+  closeBtn:{ background:"transparent", border:"none", color:"#808080", cursor:"pointer", fontSize:15, fontFamily:FONT },
 
   form:     { padding:"16px 18px", borderBottom:"1px solid #1e1e1e", background:"#0f0f0f" },
   formGrid: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:"14px 20px" },
   field:    { display:"flex", flexDirection:"column", gap:6 },
-  label:    { fontSize:10, color:"#555", textTransform:"uppercase", letterSpacing:"0.07em" },
+  label:    { fontSize:10, color:"#a0a0a0", textTransform:"uppercase", letterSpacing:"0.07em" },
   input:    { padding:"7px 10px", background:"#161616", border:"1px solid #2a2a2a", borderRadius:5, color:"#e0e0e0", fontSize:13, fontFamily:FONT, outline:"none" },
   btnGroup: { display:"flex", gap:6 },
-  toggleBtn:{ padding:"5px 12px", background:"transparent", border:"1px solid #2a2a2a", color:"#555", borderRadius:5, cursor:"pointer", fontSize:12, fontFamily:FONT },
-  dayBtn:   { padding:"4px 10px", background:"#111", border:"1px solid #2a2a2a", color:"#555", borderRadius:4, cursor:"pointer", fontSize:12, fontFamily:FONT },
-  presetBtn:{ padding:"3px 8px", background:"transparent", border:"1px solid #1e1e1e", color:"#444", borderRadius:4, cursor:"pointer", fontSize:11, fontFamily:FONT },
+  toggleBtn:{ padding:"5px 12px", background:"transparent", border:"1px solid #2a2a2a", color:"#808080", borderRadius:5, cursor:"pointer", fontSize:12, fontFamily:FONT },
+  dayBtn:   { padding:"4px 10px", background:"#111", border:"1px solid #2a2a2a", color:"#808080", borderRadius:4, cursor:"pointer", fontSize:12, fontFamily:FONT },
+  presetBtn:{ padding:"3px 8px", background:"transparent", border:"1px solid #1e1e1e", color:"#808080", borderRadius:4, cursor:"pointer", fontSize:11, fontFamily:FONT },
   error:    { marginTop:10, padding:"7px 12px", background:"#2a1010", border:"1px solid #5a2020", borderRadius:5, color:"#f87171", fontSize:12 },
   formActions:{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:14 },
-  cancelBtn:{ padding:"7px 14px", background:"transparent", border:"1px solid #2a2a2a", color:"#666", borderRadius:5, cursor:"pointer", fontSize:12, fontFamily:FONT },
+  cancelBtn:{ padding:"7px 14px", background:"transparent", border:"1px solid #2a2a2a", color:"#808080", borderRadius:5, cursor:"pointer", fontSize:12, fontFamily:FONT },
   saveBtn:  { padding:"7px 16px", background:"#1a6ef5", color:"#fff", border:"none", borderRadius:5, cursor:"pointer", fontSize:12, fontFamily:FONT, fontWeight:600 },
 
   list:     { overflowY:"auto", flex:1, padding:"10px 14px", display:"flex", flexDirection:"column", gap:6 },
-  empty:    { color:"#333", fontSize:13, padding:"20px 4px", textAlign:"center" },
+  empty:    { color:"#a0a0a0", fontSize:13, padding:"20px 4px", textAlign:"center" },
 
   schedRow: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", background:"#0f0f0f", border:"1px solid #1a1a1a", borderRadius:6, gap:10 },
   togglePill:{ padding:"2px 8px", border:"1px solid", borderRadius:10, fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:FONT, background:"transparent" },
   actionBadge:{ fontSize:11, fontWeight:700, textTransform:"uppercase", border:"1px solid", borderRadius:4, padding:"1px 7px" },
   schedTime:{ fontSize:14, fontWeight:700, color:"#e0e0e0", letterSpacing:"0.05em" },
-  schedDays:{ fontSize:11, color:"#555" },
+  schedDays:{ fontSize:11, color:"#a0a0a0" },
   schedDelay:{ fontSize:11, color:"#f97316", background:"#431407", border:"1px solid #7c2d12", borderRadius:4, padding:"1px 6px" },
-  schedLabel:{ fontSize:11, color:"#4a4a4a", fontStyle:"italic", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:160 },
+  schedLabel:{ fontSize:11, color:"#808080", fontStyle:"italic", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:160 },
   editSchedBtn:{ padding:"3px 10px", background:"#0d1f35", color:"#4a9eff", border:"1px solid #1a3a5c", borderRadius:4, cursor:"pointer", fontSize:11, fontFamily:FONT },
   delSchedBtn: { padding:"3px 8px", background:"#2a1010", color:"#f87171", border:"1px solid #5a2020", borderRadius:4, cursor:"pointer", fontSize:11, fontFamily:FONT },
 
