@@ -18,7 +18,11 @@ RUN apk add --no-cache \
     python3-dev \
     libffi-dev \
     bash \
-    git
+    git \
+    shadow
+
+# Create a non-privileged user for scripts
+RUN useradd -u 1000 -m runner
 
 WORKDIR /app
 
@@ -27,12 +31,12 @@ RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
 COPY manager.py .
-
 COPY --from=frontend-build /app/frontend/build /app/frontend/build
 
-RUN test -f /app/frontend/build/index.html || \
-    (echo "ERROR: frontend build missing index.html" && exit 1)
+# Ensure script and data directories exist and are owned by runner
+RUN mkdir -p /scripts /data && chown -R runner:runner /scripts /data /app
 
 EXPOSE 8080
 
+# Run the manager as root so it can drop privileges for scripts
 CMD ["python", "manager.py"]

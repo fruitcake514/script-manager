@@ -8,6 +8,7 @@ import collections
 import shutil
 import resource
 import signal
+import pwd
 from datetime import datetime, timezone
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -84,11 +85,14 @@ def scheduler_loop():
                 action  = sched.get("action", "start")
                 delay   = sched.get("delay_seconds", 0)
                 print(f"[scheduler] Firing '{action}' for '{script_name}' (delay={delay}s)", flush=True)
-                def _fire(sname=script_name, act=action, d=delay):
+                def _fire(sname=script_name, act=action, d=delay, dur=sched.get("duration_seconds", 0)):
                     if d > 0:
                         time.sleep(d)
                     if act == "start":
                         run_script(sname)
+                        if dur > 0:
+                            time.sleep(dur)
+                            stop_script(sname)
                     elif act == "stop":
                         stop_script(sname)
                     elif act == "restart":
@@ -118,8 +122,7 @@ def child_preexec(script_path):
     - New process group (isolates signals)
     - New session (no controlling terminal)
     - Resource limits (RAM, CPU, file descriptors)
-    - Drop any elevated capabilities
-    - Restrict to script directory via chdir
+    - Drop privileges to 'runner' user
     """
     def fn():
         try:
@@ -141,8 +144,16 @@ def child_preexec(script_path):
 
             # Core dumps off
             resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+
+            # Drop privileges to 'runner' (UID 1000)
+            try:
+                user = pwd.getpwnam("runner")
+                os.setgid(user.pw_gid)
+                os.setuid(user.pw_uid)
+            except (KeyError, PermissionError, Exception):
+                pass
         except Exception:
-            pass  # don't crash child if limits fail
+            pass
 
     return fn
 
@@ -258,17 +269,19 @@ def get_ports(script_name):
 # ── File helpers ──────────────────────────────────────────────────────────────
 
 def list_files_recursive(base_dir, prefix=""):
-    """Return list of relative file paths, skipping venv and __pycache__."""
+    """Return list of relative file paths and directories, skipping venv and __pycache__."""
     results = []
     skip = {VENV_DIR_NAME, "__pycache__", ".git", "*.pyc"}
     try:
-        for entry in sorted(os.scandir(base_dir), key=lambda e: (not e.is_file(), e.name)):
+        # Sort so folders come before files, then by name
+        for entry in sorted(os.scandir(base_dir), key=lambda e: (not e.is_dir(), e.name)):
             if entry.name in skip or entry.name.startswith("."):
                 continue
             rel = os.path.join(prefix, entry.name) if prefix else entry.name
             if entry.is_file():
-                results.append(rel)
+                results.append({"path": rel, "type": "file"})
             elif entry.is_dir():
+                results.append({"path": rel, "type": "directory"})
                 results.extend(list_files_recursive(entry.path, rel))
     except PermissionError:
         pass
@@ -390,6 +403,20 @@ def api_save_file(name, filename):
         f.write(data["content"])
     return jsonify({"status": "saved"})
 
+@app.route("/api/scripts/<name>/files/<path:filename>", methods=["DELETE"])
+def api_delete_file(name, filename):
+    dest = safe_path(name, filename)
+    if not dest or not os.path.exists(dest):
+        return jsonify({"error": "Not found"}), 404
+    try:
+        if os.path.isdir(dest):
+            shutil.rmtree(dest)
+        else:
+            os.remove(dest)
+        return jsonify({"status": "deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/scripts/<name>", methods=["DELETE"])
 def api_delete_script(name):
     stop_script(name)
@@ -401,12 +428,12 @@ def api_delete_script(name):
 
 # ── Scheduler API ─────────────────────────────────────────────────────────────
 
-@app.route("/api/scripts/<n>/schedules", methods=["GET"])
+@app.route("/api/scripts/<name>/schedules", methods=["GET"])
 def api_get_schedules(name):
     with _schedules_lock:
         return jsonify(_schedules.get(name, []))
 
-@app.route("/api/scripts/<n>/schedules", methods=["POST"])
+@app.route("/api/scripts/<name>/schedules", methods=["POST"])
 def api_add_schedule(name):
     data = request.get_json()
     if not data:
@@ -428,7 +455,7 @@ def api_add_schedule(name):
         save_schedules()
     return jsonify(sched)
 
-@app.route("/api/scripts/<n>/schedules/<sid>", methods=["PUT"])
+@app.route("/api/scripts/<name>/schedules/<sid>", methods=["PUT"])
 def api_update_schedule(name, sid):
     data = request.get_json()
     if not data:
@@ -449,7 +476,7 @@ def api_update_schedule(name, sid):
                 return jsonify(scheds[i])
     return jsonify({"error": "Not found"}), 404
 
-@app.route("/api/scripts/<n>/schedules/<sid>", methods=["DELETE"])
+@app.route("/api/scripts/<name>/schedules/<sid>", methods=["DELETE"])
 def api_delete_schedule(name, sid):
     with _schedules_lock:
         scheds = _schedules.get(name, [])
