@@ -13,7 +13,7 @@ from flask_cors import CORS
 
 SCRIPTS_DIR    = "/scripts"
 VENV_DIR_NAME  = "venv"
-ALLOWED_PORTS  = set(range(10000, 10010))
+ALLOWED_PORTS  = set(range(9051, 9075))
 LOG_MAX_LINES  = 500
 
 # ── Resource limits applied to each child script process ──────────────────────
