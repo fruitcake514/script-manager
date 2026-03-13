@@ -40,7 +40,7 @@ export default function App() {
     <div style={styles.app}>
       <header style={styles.header}>
         <div>
-          <h1 style={styles.title}>Script Manager</h1>
+          <h1 style={styles.title}>pyRunner</h1>
           <p style={styles.subtitle}>{scripts.length} script{scripts.length !== 1 ? "s" : ""} · auto-refresh 3s</p>
         </div>
         <button style={styles.createBtn} onClick={() => setShowCreate(true)}>
@@ -92,13 +92,13 @@ const styles = {
     margin: 0,
     fontSize: 22,
     fontWeight: 700,
-    color: "#fff",
+    color: "#4a9eff",
     letterSpacing: "-0.5px",
   },
   subtitle: {
     margin: "4px 0 0",
     fontSize: 12,
-    color: "#555",
+    color: "#a0a0a0",
   },
   createBtn: {
     padding: "8px 16px",
@@ -127,7 +127,7 @@ const styles = {
     fontSize: 13,
   },
   empty: {
-    color: "#555",
+    color: "#a0a0a0",
     fontSize: 14,
     lineHeight: 1.8,
   },
