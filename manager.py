@@ -34,10 +34,14 @@ _schedules_lock = threading.Lock()
 
 def load_schedules():
     global _schedules
+    os.makedirs(os.path.dirname(SCHEDULES_FILE), exist_ok=True)
+    if not os.path.exists(SCHEDULES_FILE):
+        with open(SCHEDULES_FILE, "w") as f:
+            json.dump({}, f)
+        print(f"[scheduler] Created empty schedules file at {SCHEDULES_FILE}", flush=True)
     try:
-        if os.path.exists(SCHEDULES_FILE):
-            with open(SCHEDULES_FILE) as f:
-                _schedules = json.load(f)
+        with open(SCHEDULES_FILE) as f:
+            _schedules = json.load(f)
     except Exception as e:
         print(f"[scheduler] Failed to load schedules: {e}", flush=True)
         _schedules = {}
