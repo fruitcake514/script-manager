@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import FileEditor from "./FileEditor";
 import UploadModal from "./UploadModal";
 import NewFileModal from "./NewFileModal";
+import SchedulerModal from "./SchedulerModal";
 
 // ── Log line colorizer ────────────────────────────────────────────────────────
 function LogLine({ line }) {
@@ -41,6 +42,7 @@ export default function ScriptCard({ script, refresh }) {
   const [showNewFile, setShowNewFile] = useState(false);
   const [actionMsg, setActionMsg]     = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
   const logsRef    = useRef(null);
   const logPollRef = useRef(null);
 
@@ -135,6 +137,9 @@ export default function ScriptCard({ script, refresh }) {
               ■ Stop
             </button>
           </>}
+          <button style={s.btnIcon} onClick={() => setShowScheduler(true)} title="Schedules">
+            🕐
+          </button>
           <button
             style={{ ...s.btnIcon, color: confirmDelete ? "#ff4444" : "#6b7280",
               borderColor: confirmDelete ? "#ff4444" : "#2a2a2a" }}
@@ -208,6 +213,9 @@ export default function ScriptCard({ script, refresh }) {
       {showUpload && (
         <UploadModal scriptName={script.name}
           onClose={() => { setShowUpload(false); fetchFiles(); }} />
+      )}
+      {showScheduler && (
+        <SchedulerModal scriptName={script.name} onClose={() => setShowScheduler(false)} />
       )}
       {showNewFile && (
         <NewFileModal scriptName={script.name}
