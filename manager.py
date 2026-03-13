@@ -8,12 +8,13 @@ import collections
 import shutil
 import resource
 import signal
+from datetime import datetime, timezone
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 SCRIPTS_DIR    = "/scripts"
 VENV_DIR_NAME  = "venv"
-ALLOWED_PORTS  = set(range(9051, 9075))
+ALLOWED_PORTS  = set(range(10000, 10010))
 LOG_MAX_LINES  = 500
 
 # ── Resource limits applied to each child script process ──────────────────────
@@ -22,6 +23,81 @@ LOG_MAX_LINES  = 500
 SCRIPT_MAX_RAM_MB  = 256   # soft RSS limit per script (MB)
 SCRIPT_MAX_CPU_SEC = 3600  # max CPU seconds before SIGKILL (1 hour)
 SCRIPT_MAX_FILES   = 256   # max open file descriptors
+
+# ── Scheduler state ──────────────────────────────────────────────────────────
+# Schedules stored as:
+# { script_name: [ { "id": str, "action": "start"|"stop", "time": "HH:MM",
+#                    "days": [0-6], "delay_seconds": int, "enabled": bool } ] }
+SCHEDULES_FILE = "/data/schedules.json"
+_schedules = {}
+_schedules_lock = threading.Lock()
+
+def load_schedules():
+    global _schedules
+    try:
+        if os.path.exists(SCHEDULES_FILE):
+            with open(SCHEDULES_FILE) as f:
+                _schedules = json.load(f)
+    except Exception as e:
+        print(f"[scheduler] Failed to load schedules: {e}", flush=True)
+        _schedules = {}
+
+def save_schedules():
+    try:
+        os.makedirs(os.path.dirname(SCHEDULES_FILE), exist_ok=True)
+        with open(SCHEDULES_FILE, "w") as f:
+            json.dump(_schedules, f, indent=2)
+    except Exception as e:
+        print(f"[scheduler] Failed to save schedules: {e}", flush=True)
+
+def scheduler_loop():
+    """Background thread — checks schedules every 30 seconds."""
+    print("[scheduler] Scheduler started", flush=True)
+    last_fired = {}  # key: f"{name}:{sched_id}:{date}" -> True
+    while True:
+        now = datetime.now(timezone.utc)
+        # Use local time for schedule matching
+        local = datetime.now()
+        current_hhmm = local.strftime("%H:%M")
+        current_day  = local.weekday()  # 0=Mon, 6=Sun
+
+        with _schedules_lock:
+            all_scheds = {k: list(v) for k, v in _schedules.items()}
+
+        for script_name, scheds in all_scheds.items():
+            for sched in scheds:
+                if not sched.get("enabled", True):
+                    continue
+                days = sched.get("days", list(range(7)))
+                if current_day not in days:
+                    continue
+                if sched.get("time") != current_hhmm:
+                    continue
+                fire_key = f"{script_name}:{sched['id']}:{local.strftime('%Y-%m-%d')}"
+                if fire_key in last_fired:
+                    continue
+                last_fired[fire_key] = True
+                action  = sched.get("action", "start")
+                delay   = sched.get("delay_seconds", 0)
+                print(f"[scheduler] Firing '{action}' for '{script_name}' (delay={delay}s)", flush=True)
+                def _fire(sname=script_name, act=action, d=delay):
+                    if d > 0:
+                        time.sleep(d)
+                    if act == "start":
+                        run_script(sname)
+                    elif act == "stop":
+                        stop_script(sname)
+                    elif act == "restart":
+                        stop_script(sname)
+                        time.sleep(0.5)
+                        run_script(sname)
+                    print(f"[scheduler] '{act}' completed for '{sname}'", flush=True)
+                threading.Thread(target=_fire, daemon=True).start()
+
+        # Prune last_fired entries older than today
+        today = local.strftime("%Y-%m-%d")
+        last_fired = {k: v for k, v in last_fired.items() if k.endswith(today)}
+        time.sleep(30)
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "build"), static_url_path="")
 CORS(app)
@@ -318,6 +394,65 @@ def api_delete_script(name):
         shutil.rmtree(script_dir)
     return jsonify({"status": "deleted"})
 
+
+# ── Scheduler API ─────────────────────────────────────────────────────────────
+
+@app.route("/api/scripts/<n>/schedules", methods=["GET"])
+def api_get_schedules(name):
+    with _schedules_lock:
+        return jsonify(_schedules.get(name, []))
+
+@app.route("/api/scripts/<n>/schedules", methods=["POST"])
+def api_add_schedule(name):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data"}), 400
+    import uuid
+    sched = {
+        "id":             str(uuid.uuid4())[:8],
+        "action":         data.get("action", "start"),
+        "time":           data.get("time", "08:00"),
+        "days":           data.get("days", list(range(7))),
+        "delay_seconds":  int(data.get("delay_seconds", 0)),
+        "enabled":        data.get("enabled", True),
+        "label":          data.get("label", ""),
+    }
+    with _schedules_lock:
+        if name not in _schedules:
+            _schedules[name] = []
+        _schedules[name].append(sched)
+        save_schedules()
+    return jsonify(sched)
+
+@app.route("/api/scripts/<n>/schedules/<sid>", methods=["PUT"])
+def api_update_schedule(name, sid):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data"}), 400
+    with _schedules_lock:
+        scheds = _schedules.get(name, [])
+        for i, s in enumerate(scheds):
+            if s["id"] == sid:
+                scheds[i].update({
+                    "action":        data.get("action", s["action"]),
+                    "time":          data.get("time",   s["time"]),
+                    "days":          data.get("days",   s["days"]),
+                    "delay_seconds": int(data.get("delay_seconds", s["delay_seconds"])),
+                    "enabled":       data.get("enabled", s["enabled"]),
+                    "label":         data.get("label",  s.get("label", "")),
+                })
+                save_schedules()
+                return jsonify(scheds[i])
+    return jsonify({"error": "Not found"}), 404
+
+@app.route("/api/scripts/<n>/schedules/<sid>", methods=["DELETE"])
+def api_delete_schedule(name, sid):
+    with _schedules_lock:
+        scheds = _schedules.get(name, [])
+        _schedules[name] = [s for s in scheds if s["id"] != sid]
+        save_schedules()
+    return jsonify({"status": "deleted"})
+
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_frontend(path):
@@ -338,5 +473,7 @@ if __name__ == "__main__":
     if os.path.exists(app.static_folder):
         print(f"[manager] static contents = {os.listdir(app.static_folder)}", flush=True)
     print(f"[manager] Starting Flask on 0.0.0.0:8080", flush=True)
+    load_schedules()
+    threading.Thread(target=scheduler_loop, daemon=True).start()
     start_all_scripts()
     app.run(host="0.0.0.0", port=8080, threaded=True)
