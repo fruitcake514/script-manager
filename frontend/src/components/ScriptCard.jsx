@@ -113,13 +113,19 @@ export default function ScriptCard({ script, refresh }) {
           <span style={{ ...s.dot, background: isRunning ? "#22c55e" : "#ef4444",
             boxShadow: isRunning ? "0 0 6px #22c55e" : "none" }} />
           <span style={s.name}>{script.name}</span>
+          {script.ports && script.ports.length > 0 && script.ports.map(p => (
+            <span key={p} style={s.portBadge}>:{p}</span>
+          ))}
           <span style={{ ...s.statusBadge, color: isRunning ? "#22c55e" : "#ef4444",
             borderColor: isRunning ? "#14532d" : "#450a0a" }}>
             {script.status}
           </span>
-          {script.ports && script.ports.length > 0 && script.ports.map(p => (
-            <span key={p} style={s.portBadge}>:{p}</span>
-          ))}
+          {isRunning && script.stats && (
+            <div style={s.statsBox}>
+              <span style={s.statItem}>CPU: {script.stats.cpu}%</span>
+              <span style={s.statItem}>RAM: {script.stats.ram} MB</span>
+            </div>
+          )}
         </div>
 
         <div style={s.headerRight} onClick={e => e.stopPropagation()}>
@@ -263,9 +269,11 @@ const s = {
     border: "1px solid", borderRadius: 4, padding: "1px 6px",
   },
   portBadge: {
-    fontSize: 11, color: "#4a9eff", background: "#0d1f35",
-    border: "1px solid #1a3a5c", padding: "1px 7px", borderRadius: 4,
+    fontSize: 11, color: "#fff", background: "#1a6ef5", fontWeight: 700,
+    border: "1px solid #1a6ef5", padding: "1px 7px", borderRadius: 4,
   },
+  statsBox: { display: "flex", gap: 8, marginLeft: 4 },
+  statItem: { fontSize: 10, color: "#a0a0a0", background: "#1a1a1a", padding: "1px 5px", borderRadius: 3, border: "1px solid #2a2a2a" },
   headerRight: { display: "flex", alignItems: "center", gap: 6, flexShrink: 0 },
   actionMsg: { fontSize: 11, color: "#4a9eff" },
   btnGreen:  { padding: "5px 12px", background: "#14532d", color: "#86efac", border: "1px solid #166534", borderRadius: 5, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600 },
