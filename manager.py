@@ -173,10 +173,33 @@ def install_requirements(venv_path, script_path):
         subprocess.run([pip, "install", "-r", req_file], check=False)
 
 def _append_log(name, line):
+    ts = datetime.now().strftime("[%H:%M:%S] ")
     with log_locks[name]:
-        log_buffers[name].append(line)
+        log_buffers[name].append(ts + line)
 
 # ── Script lifecycle ──────────────────────────────────────────────────────────
+
+def get_stats(script_name):
+    proc = processes.get(script_name)
+    stats = {"cpu": 0.0, "ram": 0.0}
+    if proc and proc.poll() is None:
+        try:
+            p = psutil.Process(proc.pid)
+            # Memory in MB
+            mem = p.memory_info().rss / (1024 * 1024)
+            # CPU percentage (first call might be 0, but okay for background polling)
+            cpu = p.cpu_percent(interval=None)
+            for child in p.children(recursive=True):
+                try:
+                    mem += child.memory_info().rss / (1024 * 1024)
+                    cpu += child.cpu_percent(interval=None)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            stats["cpu"] = round(cpu, 1)
+            stats["ram"] = round(mem, 1)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return stats
 
 def run_script(script_name):
     script_path = os.path.join(SCRIPTS_DIR, script_name)
@@ -303,7 +326,7 @@ def api_list_scripts():
         return jsonify([])
     scripts = sorted([d for d in os.listdir(SCRIPTS_DIR)
                       if os.path.isdir(os.path.join(SCRIPTS_DIR, d))])
-    return jsonify([{"name": s, "status": get_status(s), "ports": get_ports(s)} for s in scripts])
+    return jsonify([{"name": s, "status": get_status(s), "ports": get_ports(s), "stats": get_stats(s)} for s in scripts])
 
 @app.route("/api/scripts", methods=["POST"])
 def api_create_script():

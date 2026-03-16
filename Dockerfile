@@ -19,7 +19,8 @@ RUN apk add --no-cache \
     libffi-dev \
     bash \
     git \
-    shadow
+    shadow \
+    tzdata
 
 # Create a non-privileged user for scripts
 RUN useradd -u 1000 -m runner
