@@ -15,7 +15,7 @@ from flask_cors import CORS
 
 SCRIPTS_DIR    = "/scripts"
 VENV_DIR_NAME  = "venv"
-ALLOWED_PORTS  = set(range(10000, 10010))
+ALLOWED_PORTS  = set(range(1, 65535))
 LOG_MAX_LINES  = 500
 
 # ── Resource limits applied to each child script process ──────────────────────
@@ -278,10 +278,18 @@ def get_ports(script_name):
     if proc and proc.poll() is None:
         try:
             p = psutil.Process(proc.pid)
-            for child in [p] + p.children(recursive=True):
+            # Add current process and all its children
+            procs = [p]
+            try:
+                procs.extend(p.children(recursive=True))
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
+            for child in procs:
                 try:
-                    for c in child.connections():
-                        if c.status == "LISTEN" and c.laddr.port in ALLOWED_PORTS:
+                    # Note: connections() needs to be called on each process
+                    for c in child.connections(kind="inet"):
+                        if c.status == "LISTEN":
                             ports.append(c.laddr.port)
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
