@@ -22,9 +22,6 @@ RUN apk add --no-cache \
     shadow \
     tzdata
 
-# Create a non-privileged user for scripts
-RUN useradd -u 1000 -m runner
-
 WORKDIR /app
 
 COPY requirements.txt .
@@ -34,10 +31,12 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY manager.py .
 COPY --from=frontend-build /app/frontend/build /app/frontend/build
 
-# Ensure script and data directories exist and are owned by runner
-RUN mkdir -p /scripts /data && chown -R runner:runner /scripts /data /app
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 8080
+
+ENTRYPOINT ["/entrypoint.sh"]
 
 # Run the manager as root so it can drop privileges for scripts
 CMD ["python", "manager.py"]
