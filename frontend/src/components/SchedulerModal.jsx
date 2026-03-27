@@ -25,19 +25,21 @@ function fmtDelay(sec) {
 function fmtDays(days) {
   if (!days || days.length === 7) return "Every day";
   if (days.length === 0) return "No days";
-  if (JSON.stringify(days) === JSON.stringify([0,1,2,3,4])) return "Weekdays";
-  if (JSON.stringify(days) === JSON.stringify([5,6])) return "Weekends";
-  return days.map(d => DAYS[d]).join(", ");
+  if (JSON.stringify(days) === JSON.stringify([0, 1, 2, 3, 4])) return "Weekdays";
+  if (JSON.stringify(days) === JSON.stringify([5, 6])) return "Weekends";
+  return days.map((d) => DAYS[d]).join(", ");
 }
 
 export default function SchedulerModal({ scriptName, onClose }) {
   const [schedules, setSchedules] = useState([]);
-  const [editing, setEditing]     = useState(null);   // null | "new" | sched object
-  const [form, setForm]           = useState(emptyForm());
-  const [saving, setSaving]       = useState(false);
-  const [error, setError]         = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => { fetchSchedules(); }, []);
+  useEffect(() => {
+    fetchSchedules();
+  }, []);
 
   const fetchSchedules = async () => {
     const res = await fetch(`/api/scripts/${scriptName}/schedules`);
@@ -57,21 +59,27 @@ export default function SchedulerModal({ scriptName, onClose }) {
   };
 
   const toggleDay = (d) => {
-    setForm(f => ({
+    setForm((f) => ({
       ...f,
-      days: f.days.includes(d) ? f.days.filter(x => x !== d) : [...f.days, d].sort(),
+      days: f.days.includes(d) ? f.days.filter((x) => x !== d) : [...f.days, d].sort(),
     }));
   };
 
   const setPreset = (preset) => {
-    if (preset === "everyday")  setForm(f => ({ ...f, days: [0,1,2,3,4,5,6] }));
-    if (preset === "weekdays")  setForm(f => ({ ...f, days: [0,1,2,3,4] }));
-    if (preset === "weekends")  setForm(f => ({ ...f, days: [5,6] }));
+    if (preset === "everyday") setForm((f) => ({ ...f, days: [0, 1, 2, 3, 4, 5, 6] }));
+    if (preset === "weekdays") setForm((f) => ({ ...f, days: [0, 1, 2, 3, 4] }));
+    if (preset === "weekends") setForm((f) => ({ ...f, days: [5, 6] }));
   };
 
   const save = async () => {
-    if (!form.time) { setError("Time is required"); return; }
-    if (form.days.length === 0) { setError("Select at least one day"); return; }
+    if (!form.time) {
+      setError("Time is required");
+      return;
+    }
+    if (form.days.length === 0) {
+      setError("Select at least one day");
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -116,9 +124,8 @@ export default function SchedulerModal({ scriptName, onClose }) {
   const actionColor = { start: "#22c55e", stop: "#ef4444", restart: "#f97316" };
 
   return (
-    <div style={s.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
+    <div style={s.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={s.modal}>
-
         {/* Header */}
         <div style={s.header}>
           <div>
@@ -127,9 +134,13 @@ export default function SchedulerModal({ scriptName, onClose }) {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             {!editing && (
-              <button style={s.addBtn} onClick={openNew}>+ Add Schedule</button>
+              <button style={s.addBtn} onClick={openNew}>
+                + Add Schedule
+              </button>
             )}
-            <button style={s.closeBtn} onClick={onClose}>✕</button>
+            <button style={s.closeBtn} onClick={onClose}>
+              ✕
+            </button>
           </div>
         </div>
 
@@ -137,24 +148,32 @@ export default function SchedulerModal({ scriptName, onClose }) {
         {editing && (
           <div style={s.form}>
             <div style={s.formGrid}>
-
               {/* Label */}
               <div style={s.field}>
                 <label style={s.label}>Label (optional)</label>
-                <input style={s.input} value={form.label}
-                  onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
-                  placeholder="e.g. Morning start" />
+                <input
+                  style={s.input}
+                  value={form.label}
+                  onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+                  placeholder="e.g. Morning start"
+                />
               </div>
 
               {/* Action */}
               <div style={s.field}>
                 <label style={s.label}>Action</label>
                 <div style={s.btnGroup}>
-                  {ACTIONS.map(a => (
-                    <button key={a} style={{
-                      ...s.toggleBtn,
-                      ...(form.action === a ? { background: actionColor[a] + "22", color: actionColor[a], borderColor: actionColor[a] } : {})
-                    }} onClick={() => setForm(f => ({ ...f, action: a }))}>
+                  {ACTIONS.map((a) => (
+                    <button
+                      key={a}
+                      style={{
+                        ...s.toggleBtn,
+                        ...(form.action === a
+                          ? { background: actionColor[a] + "22", color: actionColor[a], borderColor: actionColor[a] }
+                          : {}),
+                      }}
+                      onClick={() => setForm((f) => ({ ...f, action: a }))}
+                    >
                       {a === "start" ? "▶ Start" : a === "stop" ? "■ Stop" : "↺ Restart"}
                     </button>
                   ))}
@@ -164,18 +183,26 @@ export default function SchedulerModal({ scriptName, onClose }) {
               {/* Time */}
               <div style={s.field}>
                 <label style={s.label}>Time (24h, container local time)</label>
-                <input style={{ ...s.input, width: 120 }} type="time" value={form.time}
-                  onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+                <input
+                  style={{ ...s.input, width: 130 }}
+                  type="time"
+                  value={form.time}
+                  onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
+                />
               </div>
 
               {/* Delay */}
               <div style={s.field}>
                 <label style={s.label}>Delay after trigger</label>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input style={{ ...s.input, width: 80 }} type="number" min="0"
+                  <input
+                    style={{ ...s.input, width: 80 }}
+                    type="number"
+                    min="0"
                     value={form.delay_seconds}
-                    onChange={e => setForm(f => ({ ...f, delay_seconds: parseInt(e.target.value) || 0 }))} />
-                  <span style={{ color: "#a0a0a0", fontSize: 12 }}>seconds</span>
+                    onChange={(e) => setForm((f) => ({ ...f, delay_seconds: parseInt(e.target.value) || 0 }))}
+                  />
+                  <span style={{ color: "#888", fontSize: 12 }}>seconds</span>
                 </div>
               </div>
 
@@ -184,10 +211,16 @@ export default function SchedulerModal({ scriptName, onClose }) {
                 <div style={s.field}>
                   <label style={s.label}>Stop after (duration)</label>
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <input style={{ ...s.input, width: 80 }} type="number" min="0"
+                    <input
+                      style={{ ...s.input, width: 80 }}
+                      type="number"
+                      min="0"
                       value={form.duration_seconds}
-                      onChange={e => setForm(f => ({ ...f, duration_seconds: parseInt(e.target.value) || 0 }))} />
-                    <span style={{ color: "#a0a0a0", fontSize: 12 }}>seconds (0 = forever)</span>
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, duration_seconds: parseInt(e.target.value) || 0 }))
+                      }
+                    />
+                    <span style={{ color: "#888", fontSize: 12 }}>seconds (0 = forever)</span>
                   </div>
                 </div>
               )}
@@ -197,26 +230,39 @@ export default function SchedulerModal({ scriptName, onClose }) {
                 <label style={s.label}>Days</label>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                   {DAYS.map((d, i) => (
-                    <button key={i} style={{
-                      ...s.dayBtn,
-                      ...(form.days.includes(i) ? { background: "#0d1f35", color: "#4a9eff", borderColor: "#1a3a5c" } : {})
-                    }} onClick={() => toggleDay(i)}>
+                    <button
+                      key={i}
+                      style={{
+                        ...s.dayBtn,
+                        ...(form.days.includes(i)
+                          ? { background: "#0d1f35", color: "#4a9eff", borderColor: "#1a3a5c" }
+                          : {}),
+                      }}
+                      onClick={() => toggleDay(i)}
+                    >
                       {d}
                     </button>
                   ))}
-                  <span style={{ color: "#333", fontSize: 11, margin: "0 4px" }}>|</span>
-                  <button style={s.presetBtn} onClick={() => setPreset("everyday")}>Every day</button>
-                  <button style={s.presetBtn} onClick={() => setPreset("weekdays")}>Weekdays</button>
-                  <button style={s.presetBtn} onClick={() => setPreset("weekends")}>Weekends</button>
+                  <span style={{ color: "#444", fontSize: 11, margin: "0 4px" }}>|</span>
+                  <button style={s.presetBtn} onClick={() => setPreset("everyday")}>
+                    Every day
+                  </button>
+                  <button style={s.presetBtn} onClick={() => setPreset("weekdays")}>
+                    Weekdays
+                  </button>
+                  <button style={s.presetBtn} onClick={() => setPreset("weekends")}>
+                    Weekends
+                  </button>
                 </div>
               </div>
-
             </div>
 
             {error && <div style={s.error}>{error}</div>}
 
             <div style={s.formActions}>
-              <button style={s.cancelBtn} onClick={() => setEditing(null)}>Cancel</button>
+              <button style={s.cancelBtn} onClick={() => setEditing(null)}>
+                Cancel
+              </button>
               <button style={s.saveBtn} onClick={save} disabled={saving}>
                 {saving ? "Saving…" : editing === "new" ? "Add Schedule" : "Save Changes"}
               </button>
@@ -227,21 +273,36 @@ export default function SchedulerModal({ scriptName, onClose }) {
         {/* Schedule list */}
         <div style={s.list}>
           {schedules.length === 0 && !editing && (
-            <div style={s.empty}>No schedules yet. Click <strong>+ Add Schedule</strong> to create one.</div>
+            <div style={s.empty}>
+              No schedules yet. Click <strong style={{ color: "#bbb" }}>+ Add Schedule</strong> to create one.
+            </div>
           )}
-          {schedules.map(s2 => (
-            <div key={s2.id} style={{ ...s.schedRow, opacity: s2.enabled ? 1 : 0.45 }}>
+          {schedules.map((s2) => (
+            <div key={s2.id} style={{ ...s.schedRow, opacity: s2.enabled ? 1 : 0.5 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
                 {/* Toggle */}
-                <button style={{ ...s.togglePill, background: s2.enabled ? "#14532d" : "#1a1a1a",
-                  borderColor: s2.enabled ? "#166534" : "#2a2a2a", color: s2.enabled ? "#86efac" : "#555" }}
-                  onClick={() => toggle(s2)} title={s2.enabled ? "Disable" : "Enable"}>
+                <button
+                  style={{
+                    ...s.togglePill,
+                    background: s2.enabled ? "#14532d" : "#1a1a1a",
+                    borderColor: s2.enabled ? "#166534" : "#2a2a2a",
+                    color: s2.enabled ? "#86efac" : "#666",
+                  }}
+                  onClick={() => toggle(s2)}
+                  title={s2.enabled ? "Disable" : "Enable"}
+                >
                   {s2.enabled ? "ON" : "OFF"}
                 </button>
 
                 {/* Action badge */}
-                <span style={{ ...s.actionBadge, color: actionColor[s2.action],
-                  borderColor: actionColor[s2.action] + "44", background: actionColor[s2.action] + "11" }}>
+                <span
+                  style={{
+                    ...s.actionBadge,
+                    color: actionColor[s2.action],
+                    borderColor: actionColor[s2.action] + "44",
+                    background: actionColor[s2.action] + "11",
+                  }}
+                >
                   {s2.action}
                 </span>
 
@@ -252,9 +313,7 @@ export default function SchedulerModal({ scriptName, onClose }) {
                 <span style={s.schedDays}>{fmtDays(s2.days)}</span>
 
                 {/* Delay */}
-                {s2.delay_seconds > 0 && (
-                  <span style={s.schedDelay}>+{fmtDelay(s2.delay_seconds)} wait</span>
-                )}
+                {s2.delay_seconds > 0 && <span style={s.schedDelay}>+{fmtDelay(s2.delay_seconds)} wait</span>}
 
                 {/* Duration */}
                 {s2.duration_seconds > 0 && (
@@ -268,15 +327,19 @@ export default function SchedulerModal({ scriptName, onClose }) {
               </div>
 
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                <button style={s.editSchedBtn} onClick={() => openEdit(s2)}>Edit</button>
-                <button style={s.delSchedBtn} onClick={() => del(s2.id)}>✕</button>
+                <button style={s.editSchedBtn} onClick={() => openEdit(s2)}>
+                  Edit
+                </button>
+                <button style={s.delSchedBtn} onClick={() => del(s2.id)}>
+                  ✕
+                </button>
               </div>
             </div>
           ))}
         </div>
 
         <div style={s.footer}>
-          <span style={{ color: "#333", fontSize: 11 }}>
+          <span style={{ color: "#555", fontSize: 11 }}>
             Schedules use the container's local time. Checked every 30 seconds. Persisted across restarts.
           </span>
         </div>
@@ -287,40 +350,182 @@ export default function SchedulerModal({ scriptName, onClose }) {
 
 const FONT = "'JetBrains Mono', monospace";
 const s = {
-  overlay: { position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, fontFamily:FONT },
-  modal:   { background:"#141414", border:"1px solid #222", borderRadius:10, width:"min(780px,96vw)", maxHeight:"90vh", display:"flex", flexDirection:"column", overflow:"hidden" },
-  header:  { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 18px", borderBottom:"1px solid #1e1e1e", background:"#161616", flexShrink:0 },
-  title:   { fontSize:15, fontWeight:700, color:"#4a9eff" },
-  sub:     { fontSize:13, color:"#a0a0a0" },
-  addBtn:  { padding:"6px 14px", background:"#1a6ef5", color:"#fff", border:"none", borderRadius:5, cursor:"pointer", fontSize:12, fontFamily:FONT, fontWeight:600 },
-  closeBtn:{ background:"transparent", border:"none", color:"#808080", cursor:"pointer", fontSize:15, fontFamily:FONT },
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.82)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 300,
+    fontFamily: FONT,
+  },
+  modal: {
+    background: "#161616",
+    border: "1px solid #222",
+    borderRadius: 10,
+    width: "min(780px, 96vw)",
+    maxHeight: "90vh",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+  },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "14px 18px",
+    borderBottom: "1px solid #1e1e1e",
+    background: "#1a1a1a",
+    flexShrink: 0,
+  },
+  title: { fontSize: 16, fontWeight: 700, color: "#4a9eff" },
+  sub: { fontSize: 14, color: "#888" },
+  addBtn: {
+    padding: "7px 14px",
+    background: "#1a6ef5",
+    color: "#fff",
+    border: "none",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: FONT,
+    fontWeight: 600,
+  },
+  closeBtn: { background: "transparent", border: "none", color: "#888", cursor: "pointer", fontSize: 15, fontFamily: FONT },
 
-  form:     { padding:"16px 18px", borderBottom:"1px solid #1e1e1e", background:"#0f0f0f" },
-  formGrid: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:"14px 20px" },
-  field:    { display:"flex", flexDirection:"column", gap:6 },
-  label:    { fontSize:10, color:"#a0a0a0", textTransform:"uppercase", letterSpacing:"0.07em" },
-  input:    { padding:"7px 10px", background:"#161616", border:"1px solid #2a2a2a", borderRadius:5, color:"#e0e0e0", fontSize:13, fontFamily:FONT, outline:"none" },
-  btnGroup: { display:"flex", gap:6 },
-  toggleBtn:{ padding:"5px 12px", background:"transparent", border:"1px solid #2a2a2a", color:"#808080", borderRadius:5, cursor:"pointer", fontSize:12, fontFamily:FONT },
-  dayBtn:   { padding:"4px 10px", background:"#111", border:"1px solid #2a2a2a", color:"#808080", borderRadius:4, cursor:"pointer", fontSize:12, fontFamily:FONT },
-  presetBtn:{ padding:"3px 8px", background:"transparent", border:"1px solid #1e1e1e", color:"#808080", borderRadius:4, cursor:"pointer", fontSize:11, fontFamily:FONT },
-  error:    { marginTop:10, padding:"7px 12px", background:"#2a1010", border:"1px solid #5a2020", borderRadius:5, color:"#f87171", fontSize:12 },
-  formActions:{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:14 },
-  cancelBtn:{ padding:"7px 14px", background:"transparent", border:"1px solid #2a2a2a", color:"#808080", borderRadius:5, cursor:"pointer", fontSize:12, fontFamily:FONT },
-  saveBtn:  { padding:"7px 16px", background:"#1a6ef5", color:"#fff", border:"none", borderRadius:5, cursor:"pointer", fontSize:12, fontFamily:FONT, fontWeight:600 },
+  form: { padding: "16px 18px", borderBottom: "1px solid #1e1e1e", background: "#111" },
+  formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 20px" },
+  field: { display: "flex", flexDirection: "column", gap: 6 },
+  label: { fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 500 },
+  input: {
+    padding: "8px 10px",
+    background: "#181818",
+    border: "1px solid #333",
+    borderRadius: 5,
+    color: "#e0e0e0",
+    fontSize: 13,
+    fontFamily: FONT,
+    outline: "none",
+  },
+  btnGroup: { display: "flex", gap: 6 },
+  toggleBtn: {
+    padding: "6px 12px",
+    background: "transparent",
+    border: "1px solid #2a2a2a",
+    color: "#888",
+    borderRadius: 5,
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: FONT,
+  },
+  dayBtn: {
+    padding: "5px 10px",
+    background: "#141414",
+    border: "1px solid #2a2a2a",
+    color: "#888",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: FONT,
+  },
+  presetBtn: {
+    padding: "3px 8px",
+    background: "transparent",
+    border: "1px solid #222",
+    color: "#777",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 11,
+    fontFamily: FONT,
+  },
+  error: { marginTop: 10, padding: "7px 12px", background: "#2a1010", border: "1px solid #5a2020", borderRadius: 5, color: "#f87171", fontSize: 12 },
+  formActions: { display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 },
+  cancelBtn: {
+    padding: "7px 14px",
+    background: "transparent",
+    border: "1px solid #2a2a2a",
+    color: "#999",
+    borderRadius: 5,
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: FONT,
+  },
+  saveBtn: {
+    padding: "7px 16px",
+    background: "#1a6ef5",
+    color: "#fff",
+    border: "none",
+    borderRadius: 5,
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: FONT,
+    fontWeight: 600,
+  },
 
-  list:     { overflowY:"auto", flex:1, padding:"10px 14px", display:"flex", flexDirection:"column", gap:6 },
-  empty:    { color:"#a0a0a0", fontSize:13, padding:"20px 4px", textAlign:"center" },
+  list: { overflowY: "auto", flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6 },
+  empty: { color: "#888", fontSize: 13, padding: "20px 4px", textAlign: "center" },
 
-  schedRow: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", background:"#0f0f0f", border:"1px solid #1a1a1a", borderRadius:6, gap:10 },
-  togglePill:{ padding:"2px 8px", border:"1px solid", borderRadius:10, fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:FONT, background:"transparent" },
-  actionBadge:{ fontSize:11, fontWeight:700, textTransform:"uppercase", border:"1px solid", borderRadius:4, padding:"1px 7px" },
-  schedTime:{ fontSize:14, fontWeight:700, color:"#e0e0e0", letterSpacing:"0.05em" },
-  schedDays:{ fontSize:11, color:"#a0a0a0" },
-  schedDelay:{ fontSize:11, color:"#f97316", background:"#431407", border:"1px solid #7c2d12", borderRadius:4, padding:"1px 6px" },
-  schedLabel:{ fontSize:11, color:"#808080", fontStyle:"italic", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:160 },
-  editSchedBtn:{ padding:"3px 10px", background:"#0d1f35", color:"#4a9eff", border:"1px solid #1a3a5c", borderRadius:4, cursor:"pointer", fontSize:11, fontFamily:FONT },
-  delSchedBtn: { padding:"3px 8px", background:"#2a1010", color:"#f87171", border:"1px solid #5a2020", borderRadius:4, cursor:"pointer", fontSize:11, fontFamily:FONT },
+  schedRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "10px 12px",
+    background: "#111",
+    border: "1px solid #1e1e1e",
+    borderRadius: 6,
+    gap: 10,
+  },
+  togglePill: {
+    padding: "3px 9px",
+    border: "1px solid",
+    borderRadius: 10,
+    fontSize: 10,
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: FONT,
+    background: "transparent",
+  },
+  actionBadge: {
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    border: "1px solid",
+    borderRadius: 4,
+    padding: "2px 8px",
+  },
+  schedTime: { fontSize: 14, fontWeight: 700, color: "#eee", letterSpacing: "0.05em" },
+  schedDays: { fontSize: 12, color: "#999" },
+  schedDelay: { fontSize: 11, color: "#f97316", background: "#431407", border: "1px solid #7c2d12", borderRadius: 4, padding: "2px 6px" },
+  schedLabel: {
+    fontSize: 11,
+    color: "#777",
+    fontStyle: "italic",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    maxWidth: 160,
+  },
+  editSchedBtn: {
+    padding: "4px 10px",
+    background: "#0d1f35",
+    color: "#4a9eff",
+    border: "1px solid #1a3a5c",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 11,
+    fontFamily: FONT,
+  },
+  delSchedBtn: {
+    padding: "4px 8px",
+    background: "#2a1010",
+    color: "#f87171",
+    border: "1px solid #5a2020",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 11,
+    fontFamily: FONT,
+  },
 
-  footer: { padding:"10px 18px", borderTop:"1px solid #1a1a1a", background:"#0f0f0f", flexShrink:0 },
+  footer: { padding: "10px 18px", borderTop: "1px solid #1a1a1a", background: "#111", flexShrink: 0 },
 };

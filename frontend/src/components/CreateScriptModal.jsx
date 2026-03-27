@@ -21,7 +21,10 @@ export default function CreateScriptModal({ onClose, onCreate }) {
 
   const handleSubmit = async () => {
     setError(null);
-    if (!name.trim()) { setError("Script name is required."); return; }
+    if (!name.trim()) {
+      setError("Script name is required.");
+      return;
+    }
     setLoading(true);
     try {
       await onCreate({
@@ -41,7 +44,9 @@ export default function CreateScriptModal({ onClose, onCreate }) {
       <div style={styles.modal}>
         <div style={styles.modalHeader}>
           <h2 style={styles.modalTitle}>New Script</h2>
-          <button style={styles.closeBtn} onClick={onClose}>✕</button>
+          <button style={styles.closeBtn} onClick={onClose}>
+            ✕
+          </button>
         </div>
 
         <div style={styles.field}>
@@ -53,7 +58,9 @@ export default function CreateScriptModal({ onClose, onCreate }) {
             placeholder="my_script"
             autoFocus
           />
-          <small style={styles.hint}>Spaces will be replaced with underscores. Creates <code>/scripts/{name || "name"}/</code></small>
+          <small style={styles.hint}>
+            Spaces replaced with underscores. Creates <code style={styles.code}>/scripts/{name || "name"}/</code>
+          </small>
         </div>
 
         <div style={styles.tabBar}>
@@ -89,7 +96,9 @@ export default function CreateScriptModal({ onClose, onCreate }) {
         {error && <div style={styles.error}>{error}</div>}
 
         <div style={styles.actions}>
-          <button style={styles.cancelBtn} onClick={onClose}>Cancel</button>
+          <button style={styles.cancelBtn} onClick={onClose}>
+            Cancel
+          </button>
           <button style={styles.createBtn} onClick={handleSubmit} disabled={loading}>
             {loading ? "Creating..." : "Create & Save"}
           </button>
@@ -99,64 +108,134 @@ export default function CreateScriptModal({ onClose, onCreate }) {
   );
 }
 
+const FONT = "'JetBrains Mono', monospace";
 const styles = {
   overlay: {
-    position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
-    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.75)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100,
   },
   modal: {
-    background: "#161616", border: "1px solid #2a2a2a", borderRadius: 10,
-    width: "min(680px, 96vw)", display: "flex", flexDirection: "column", gap: 0,
-    fontFamily: "'JetBrains Mono', monospace",
+    background: "#181818",
+    border: "1px solid #2a2a2a",
+    borderRadius: 10,
+    width: "min(680px, 96vw)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
+    fontFamily: FONT,
   },
   modalHeader: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "16px 20px", borderBottom: "1px solid #222",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "16px 20px",
+    borderBottom: "1px solid #222",
   },
-  modalTitle: { margin: 0, fontSize: 16, color: "#4a9eff", fontWeight: 700 },
+  modalTitle: { margin: 0, fontSize: 17, color: "#4a9eff", fontWeight: 700 },
   closeBtn: {
-    background: "transparent", border: "none", color: "#808080",
-    cursor: "pointer", fontSize: 16, fontFamily: "inherit",
+    background: "transparent",
+    border: "none",
+    color: "#888",
+    cursor: "pointer",
+    fontSize: 16,
+    fontFamily: "inherit",
   },
   field: { padding: "16px 20px 0" },
-  label: { display: "block", fontSize: 11, color: "#a0a0a0", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" },
-  input: {
-    width: "100%", padding: "8px 12px", background: "#0f0f0f",
-    border: "1px solid #2a2a2a", borderRadius: 6, color: "#e0e0e0",
-    fontSize: 13, fontFamily: "inherit", boxSizing: "border-box",
+  label: {
+    display: "block",
+    fontSize: 11,
+    color: "#888",
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    fontWeight: 500,
   },
-  hint: { color: "#808080", fontSize: 11, marginTop: 4, display: "block" },
+  input: {
+    width: "100%",
+    padding: "9px 12px",
+    background: "#111",
+    border: "1px solid #333",
+    borderRadius: 6,
+    color: "#e0e0e0",
+    fontSize: 13,
+    fontFamily: "inherit",
+    boxSizing: "border-box",
+    outline: "none",
+  },
+  hint: { color: "#777", fontSize: 11, marginTop: 4, display: "block" },
+  code: { background: "#1a1a1a", padding: "1px 4px", borderRadius: 3, color: "#aaa" },
   tabBar: {
-    display: "flex", borderBottom: "1px solid #222", padding: "0 20px", marginTop: 16,
+    display: "flex",
+    borderBottom: "1px solid #222",
+    padding: "0 20px",
+    marginTop: 16,
   },
   tab: {
-    padding: "8px 14px", background: "transparent", border: "none",
-    borderBottom: "2px solid transparent", color: "#808080",
-    cursor: "pointer", fontSize: 12, fontFamily: "inherit",
+    padding: "8px 14px",
+    background: "transparent",
+    border: "none",
+    borderBottom: "2px solid transparent",
+    color: "#6b7280",
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: "inherit",
   },
   tabActive: { color: "#e0e0e0", borderBottomColor: "#1a6ef5" },
   editor: {
-    margin: "0", padding: "14px 20px", background: "#0a0a0a",
-    border: "none", borderBottom: "1px solid #1e1e1e",
-    color: "#a0d0ff", fontSize: 12, fontFamily: "inherit",
-    lineHeight: 1.7, width: "100%", height: 240,
-    resize: "vertical", boxSizing: "border-box", outline: "none",
+    margin: "0",
+    padding: "14px 20px",
+    background: "#0e0e0e",
+    border: "none",
+    borderBottom: "1px solid #1e1e1e",
+    color: "#b0d4f1",
+    fontSize: 12,
+    fontFamily: "inherit",
+    lineHeight: 1.7,
+    width: "100%",
+    height: 240,
+    resize: "vertical",
+    boxSizing: "border-box",
+    outline: "none",
   },
   error: {
-    margin: "12px 20px 0", padding: "8px 12px", background: "#2a1010",
-    border: "1px solid #5a2020", borderRadius: 6, color: "#f87171", fontSize: 12,
+    margin: "12px 20px 0",
+    padding: "8px 12px",
+    background: "#2a1010",
+    border: "1px solid #5a2020",
+    borderRadius: 6,
+    color: "#f87171",
+    fontSize: 12,
   },
   actions: {
-    display: "flex", justifyContent: "flex-end", gap: 8,
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 8,
     padding: "14px 20px",
   },
   cancelBtn: {
-    padding: "8px 16px", background: "transparent", border: "1px solid #333",
-    color: "#a0a0a0", borderRadius: 6, cursor: "pointer", fontSize: 13, fontFamily: "inherit",
+    padding: "8px 16px",
+    background: "transparent",
+    border: "1px solid #333",
+    color: "#999",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 13,
+    fontFamily: "inherit",
   },
   createBtn: {
-    padding: "8px 18px", background: "#1a6ef5", color: "#fff",
-    border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13,
-    fontFamily: "inherit", fontWeight: 600,
+    padding: "8px 18px",
+    background: "#1a6ef5",
+    color: "#fff",
+    border: "none",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 13,
+    fontFamily: "inherit",
+    fontWeight: 600,
   },
 };

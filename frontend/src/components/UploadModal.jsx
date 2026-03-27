@@ -26,29 +26,46 @@ export default function UploadModal({ scriptName, onClose }) {
     <div style={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={styles.modal}>
         <div style={styles.header}>
-          <span style={styles.title}>Upload file to <strong>{scriptName}</strong></span>
-          <button style={styles.closeBtn} onClick={onClose}>✕</button>
+          <span style={styles.title}>
+            Upload file to <strong style={{ color: "#d4d4d4" }}>{scriptName}</strong>
+          </span>
+          <button style={styles.closeBtn} onClick={onClose}>
+            ✕
+          </button>
         </div>
         <div style={styles.body}>
           <div
             style={styles.dropZone}
             onClick={() => inputRef.current.click()}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); setFile(e.dataTransfer.files[0]); setStatus(null); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setFile(e.dataTransfer.files[0]);
+              setStatus(null);
+            }}
           >
             {file ? (
-              <span style={{ color: "#a0d0ff" }}>📄 {file.name}</span>
+              <span style={{ color: "#b0d4f1" }}>📄 {file.name}</span>
             ) : (
-              <span style={{ color: "#444" }}>Click or drag & drop a file here</span>
+              <span style={{ color: "#555" }}>Click or drag &amp; drop a file here</span>
             )}
-            <input ref={inputRef} type="file" style={{ display: "none" }}
-              onChange={(e) => { setFile(e.target.files[0]); setStatus(null); }} />
+            <input
+              ref={inputRef}
+              type="file"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                setFile(e.target.files[0]);
+                setStatus(null);
+              }}
+            />
           </div>
           {status && (
             <div style={{ ...styles.msg, color: status.ok ? "#22c55e" : "#f87171" }}>{status.msg}</div>
           )}
           <div style={styles.actions}>
-            <button style={styles.cancelBtn} onClick={onClose}>Close</button>
+            <button style={styles.cancelBtn} onClick={onClose}>
+              Close
+            </button>
             <button style={styles.uploadBtn} onClick={handleUpload} disabled={!file || uploading}>
               {uploading ? "Uploading..." : "Upload"}
             </button>
@@ -59,29 +76,72 @@ export default function UploadModal({ scriptName, onClose }) {
   );
 }
 
+const FONT = "'JetBrains Mono', monospace";
 const styles = {
   overlay: {
-    position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
-    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200,
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.75)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 200,
   },
   modal: {
-    background: "#161616", border: "1px solid #2a2a2a", borderRadius: 10,
-    width: "min(480px, 96vw)", fontFamily: "'JetBrains Mono', monospace",
+    background: "#181818",
+    border: "1px solid #2a2a2a",
+    borderRadius: 10,
+    width: "min(480px, 96vw)",
+    fontFamily: FONT,
   },
   header: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "14px 18px", borderBottom: "1px solid #222",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "14px 18px",
+    borderBottom: "1px solid #222",
   },
-  title: { fontSize: 13, color: "#888" },
-  closeBtn: { background: "transparent", border: "none", color: "#555", cursor: "pointer", fontSize: 15, fontFamily: "inherit" },
+  title: { fontSize: 14, color: "#999" },
+  closeBtn: {
+    background: "transparent",
+    border: "none",
+    color: "#666",
+    cursor: "pointer",
+    fontSize: 15,
+    fontFamily: "inherit",
+  },
   body: { padding: 18, display: "flex", flexDirection: "column", gap: 14 },
   dropZone: {
-    border: "2px dashed #2a2a2a", borderRadius: 8, padding: "32px 20px",
-    textAlign: "center", cursor: "pointer", fontSize: 13,
-    background: "#0f0f0f",
+    border: "2px dashed #333",
+    borderRadius: 8,
+    padding: "32px 20px",
+    textAlign: "center",
+    cursor: "pointer",
+    fontSize: 13,
+    background: "#111",
+    color: "#888",
   },
-  msg: { fontSize: 12 },
+  msg: { fontSize: 13 },
   actions: { display: "flex", justifyContent: "flex-end", gap: 8 },
-  cancelBtn: { padding: "7px 14px", background: "transparent", border: "1px solid #333", color: "#777", borderRadius: 5, cursor: "pointer", fontSize: 12, fontFamily: "inherit" },
-  uploadBtn: { padding: "7px 16px", background: "#1a6ef5", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600 },
+  cancelBtn: {
+    padding: "8px 14px",
+    background: "transparent",
+    border: "1px solid #333",
+    color: "#999",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: "inherit",
+  },
+  uploadBtn: {
+    padding: "8px 16px",
+    background: "#1a6ef5",
+    color: "#fff",
+    border: "none",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 12,
+    fontFamily: "inherit",
+    fontWeight: 600,
+  },
 };
