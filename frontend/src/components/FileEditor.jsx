@@ -1,25 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
-// ── Syntax token patterns ─────────────────────────────────────────────────────
-const PYTHON_TOKENS = [
-  { pattern: /(#[^\n]*)/, color: "#6a9955" },
-  { pattern: /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|"""[\s\S]*?"""|'''[\s\S]*?''')/, color: "#ce9178" },
-  {
-    pattern:
-      /\b(def|class|import|from|return|if|elif|else|for|while|try|except|finally|with|as|pass|break|continue|raise|yield|lambda|not|and|or|in|is|None|True|False|global|nonlocal|del|assert|async|await)\b/,
-    color: "#569cd6",
-  },
-  { pattern: /\b([A-Z][A-Za-z0-9_]*)\b/, color: "#4ec9b0" },
-  { pattern: /\b(\d+\.?\d*)\b/, color: "#b5cea8" },
-  { pattern: /\b([a-z_][a-z0-9_]*)\s*(?=\()/, color: "#dcdcaa" },
-];
-
-const JSON_TOKENS = [
-  { pattern: /("(?:[^"\\]|\\.)*")(\s*:)/, color: "#9cdcfe" },
-  { pattern: /:\s*("(?:[^"\\]|\\.)*")/, color: "#ce9178" },
-  { pattern: /\b(true|false|null)\b/, color: "#569cd6" },
-  { pattern: /\b(\d+\.?\d*)\b/, color: "#b5cea8" },
-];
+// ── Syntax highlighting ──────────────────────────────────────────────────────
 
 function getLanguage(filename) {
   const ext = filename.split(".").pop().toLowerCase();
@@ -32,46 +13,97 @@ function getLanguage(filename) {
 }
 
 function escHtml(str) {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function highlightLine(line, tokens) {
+  if (!tokens || tokens.length === 0) return escHtml(line);
+
+  // Build flat array of { start, end, color } for all matches
+  const spans = [];
+  let html = escHtml(line);
+
+  tokens.forEach(({ pattern, color }) => {
+    const re = new RegExp(pattern.source, "g");
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const full = m[0];
+      const g1 = m[1];
+      if (g1 !== undefined) {
+        // Find where g1 starts within the full match in the html string
+        const g1InFull = full.indexOf(g1);
+        const g1Start = m.index + g1InFull;
+        const g1End = g1Start + g1.length;
+        spans.push({ start: g1Start, end: g1End, color });
+      } else {
+        spans.push({ start: m.index, end: m.index + full.length, color });
+      }
+    }
+  });
+
+  if (spans.length === 0) return html;
+
+  // Sort by start position, then by length (longer first for same start)
+  spans.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+
+  // Remove overlapping spans — keep first match at each position
+  const filtered = [];
+  let lastEnd = -1;
+  for (const sp of spans) {
+    if (sp.start >= lastEnd) {
+      filtered.push(sp);
+      lastEnd = sp.end;
+    }
+  }
+
+  // Build result string
+  let result = "";
+  let pos = 0;
+  for (const sp of filtered) {
+    if (sp.start > pos) result += html.slice(pos, sp.start);
+    result += `<span style="color:${sp.color}">` + html.slice(sp.start, sp.end) + `</span>`;
+    pos = sp.end;
+  }
+  if (pos < html.length) result += html.slice(pos);
+  return result;
 }
 
 function syntaxHighlight(code, lang) {
-  if (lang === "text") return escHtml(code);
   const lines = code.split("\n");
-  return lines.map((line) => highlightLine(line, lang)).join("\n");
+  let tokens = null;
+  if (lang === "python") {
+    tokens = [
+      { pattern: /(#[^\n]*)/, color: "#6a9955" },
+      { pattern: /("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/, color: "#ce9178" },
+      { pattern: /\b(def|class|import|from|return|if|elif|else|for|while|try|except|finally|with|as|pass|break|continue|raise|yield|lambda|not|and|or|in|is|None|True|False|global|nonlocal|del|assert|async|await)\b/, color: "#569cd6" },
+      { pattern: /\b([A-Z][A-Za-z0-9_]*)\b/, color: "#4ec9b0" },
+      { pattern: /\b(\d+\.?\d*)\b/, color: "#b5cea8" },
+      { pattern: /\b([a-z_][a-z0-9_]*)\s*(?=\()/, color: "#dcdcaa" },
+    ];
+  } else if (lang === "json") {
+    tokens = [
+      { pattern: /("(?:[^"\\]|\\.)*")(\s*:)/, color: "#9cdcfe" },
+      { pattern: /:\s*("(?:[^"\\]|\\.)*")/, color: "#ce9178" },
+      { pattern: /\b(true|false|null)\b/, color: "#569cd6" },
+      { pattern: /\b(\d+\.?\d*)\b/, color: "#b5cea8" },
+    ];
+  }
+  return lines.map((line) => highlightLine(line, tokens)).join("\n");
 }
 
-function highlightLine(line, lang) {
-  const tokens =
-    lang === "python" ? PYTHON_TOKENS : lang === "json" ? JSON_TOKENS : [];
-  if (!tokens.length) {
-    let h = escHtml(line);
-    h = h.replace(/(#[^\n]*)/, '<span style="color:#6a9955">$1</span>');
-    return h;
-  }
-  let html = escHtml(line);
-  tokens.forEach(({ pattern, color }) => {
-    html = html.replace(new RegExp(pattern.source, "g"), (match, g1) => {
-      if (g1 !== undefined) {
-        return match.replace(
-          escHtml(g1),
-          `<span style="color:${color}">${escHtml(g1)}</span>`
-        );
-      }
-      return `<span style="color:${color}">${escHtml(match)}</span>`;
-    });
-  });
-  return html;
-}
+// ── Editor ───────────────────────────────────────────────────────────────────
 
 export default function FileEditor({ scriptName, filename, onClose }) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
-  const textareaRef = useRef(null);
-  const previewRef = useRef(null);
-  const lineNumsRef = useRef(null);
+  const editorRef = useRef(null);
+  const syncRef = useRef(null); // prevents cursor jump during highlight sync
   const lang = getLanguage(filename);
 
   useEffect(() => {
@@ -83,16 +115,58 @@ export default function FileEditor({ scriptName, filename, onClose }) {
       });
   }, [scriptName, filename]);
 
-  // Sync scroll between textarea, highlight preview, and line numbers
-  const syncScroll = () => {
-    if (textareaRef.current && previewRef.current) {
-      previewRef.current.scrollTop = textareaRef.current.scrollTop;
-      previewRef.current.scrollLeft = textareaRef.current.scrollLeft;
+  // Render highlighted HTML into the editor div
+  const renderHighlight = useCallback(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    const sel = window.getSelection();
+    const savedRange = sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+
+    el.innerHTML = syntaxHighlight(content, lang) + "\n";
+
+    // Restore cursor position after innerHTML replacement
+    if (savedRange) {
+      try {
+        sel.removeAllRanges();
+        sel.addRange(savedRange);
+      } catch (e) {
+        // cursor restore failed — place at end
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
     }
-    if (textareaRef.current && lineNumsRef.current) {
-      lineNumsRef.current.scrollTop = textareaRef.current.scrollTop;
+  }, [content, lang]);
+
+  useEffect(() => {
+    if (!loading) {
+      // Initial render
+      const el = editorRef.current;
+      if (el) {
+        el.textContent = content;
+        renderHighlight();
+      }
     }
-  };
+  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-highlight on content change (debounced via rAF)
+  useEffect(() => {
+    if (loading) return;
+    if (syncRef.current) cancelAnimationFrame(syncRef.current);
+    syncRef.current = requestAnimationFrame(renderHighlight);
+  }, [content, renderHighlight, loading]);
+
+  const onInput = useCallback(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    // Get plain text from contentEditable
+    const text = el.innerText;
+    // Remove trailing newline that contentEditable adds
+    const clean = text.endsWith("\n") ? text.slice(0, -1) : text;
+    setContent(clean);
+  }, []);
 
   const save = async () => {
     setSaving(true);
@@ -102,91 +176,77 @@ export default function FileEditor({ scriptName, filename, onClose }) {
       body: JSON.stringify({ content }),
     });
     setSaving(false);
-    setMsg(res.ok ? "✓ Saved" : "✗ Error");
+    setMsg(res.ok ? "Saved" : "Error");
     setTimeout(() => setMsg(null), 2000);
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Tab") {
-      e.preventDefault();
-      const start = e.target.selectionStart;
-      const end = e.target.selectionEnd;
-      const next = content.substring(0, start) + "    " + content.substring(end);
-      setContent(next);
-      requestAnimationFrame(() => {
-        textareaRef.current.selectionStart = start + 4;
-        textareaRef.current.selectionEnd = start + 4;
-      });
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-      e.preventDefault();
-      save();
-    }
-  };
+  const onKeyDown = useCallback(
+    (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        save();
+      }
+      // Tab inserts 4 spaces
+      if (e.key === "Tab") {
+        e.preventDefault();
+        document.execCommand("insertText", false, "    ");
+      }
+    },
+    [save]
+  );
 
-  const highlighted = syntaxHighlight(content, lang);
   const lineCount = content.split("\n").length;
 
   return (
-    <div style={s.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={s.modal}>
+    <div style={S.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={S.modal}>
         {/* Header */}
-        <div style={s.header}>
-          <div style={s.headerLeft}>
-            <span style={s.path}>{scriptName} / </span>
-            <span style={s.fname}>{filename}</span>
-            <span style={s.langBadge}>{lang}</span>
+        <div style={S.header}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <span style={{ fontSize: 12, color: "#666", flexShrink: 0 }}>{scriptName} / </span>
+            <span style={{ fontSize: 14, color: "#e0e0e0", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {filename}
+            </span>
+            <span style={S.badge}>{lang}</span>
           </div>
-          <div style={s.headerRight}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
             {msg && (
-              <span style={{ color: msg.startsWith("✓") ? "#34d399" : "#f87171", fontSize: 13 }}>
-                {msg}
+              <span style={{ color: msg === "Saved" ? "#34d399" : "#f87171", fontSize: 13 }}>
+                {msg === "Saved" ? "✓" : "✗"} {msg}
               </span>
             )}
-            <span style={s.hint}>Ctrl+S save · Tab = 4 spaces</span>
-            <button style={s.saveBtn} onClick={save} disabled={saving}>
+            <span style={{ fontSize: 11, color: "#555" }}>Ctrl+S · Tab = 4 spaces</span>
+            <button style={S.saveBtn} onClick={save} disabled={saving}>
               {saving ? "Saving…" : "Save"}
             </button>
-            <button style={s.closeBtn} onClick={onClose}>
-              ✕
-            </button>
+            <button style={S.closeBtn} onClick={onClose}>✕</button>
           </div>
         </div>
 
-        {/* Editor body — isolated with all:initial to prevent CSS leaking */}
+        {/* Editor body */}
         {loading ? (
           <div style={{ padding: 20, color: "#555", fontSize: 13 }}>Loading…</div>
         ) : (
-          <div style={s.editorWrap}>
+          <div style={S.body}>
             {/* Line numbers */}
-            <div ref={lineNumsRef} style={s.lineNums}>
+            <div style={S.lineNums}>
               {Array.from({ length: lineCount }, (_, i) => (
-                <div key={i} style={s.lineNum}>
-                  {i + 1}
-                </div>
+                <div key={i} style={S.ln}>{i + 1}</div>
               ))}
             </div>
-            {/* Code area */}
-            <div style={s.codeArea}>
-              {/* Highlight layer */}
-              <pre
-                ref={previewRef}
-                style={s.highlight}
-                dangerouslySetInnerHTML={{ __html: highlighted + "\n" }}
-                aria-hidden
-              />
-              {/* Editable textarea on top */}
-              <textarea
-                ref={textareaRef}
-                style={s.textarea}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onScroll={syncScroll}
+
+            {/* Editable code area */}
+            <div style={S.codeOuter}>
+              <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={onInput}
+                onKeyDown={onKeyDown}
                 spellCheck={false}
-                autoCapitalize="off"
                 autoCorrect="off"
-                wrap="off"
+                autoCapitalize="off"
+                style={S.editor}
               />
             </div>
           </div>
@@ -196,11 +256,13 @@ export default function FileEditor({ scriptName, filename, onClose }) {
   );
 }
 
-const FONT = "'JetBrains Mono', 'Fira Mono', 'Consolas', monospace";
-const FONT_SIZE = 13;
-const LINE_H = 1.65;
+// ── Styles ───────────────────────────────────────────────────────────────────
 
-const s = {
+const F = "'JetBrains Mono', 'Fira Mono', 'Consolas', 'Courier New', monospace";
+const FS = 13;
+const LH = "20.8px"; // 13 * 1.6 = 20.8 — explicit pixel value for perfect alignment
+
+const S = {
   overlay: {
     position: "fixed",
     inset: 0,
@@ -214,17 +276,14 @@ const s = {
     background: "#1a1a1a",
     border: "1px solid #333",
     borderRadius: 10,
-    width: "min(940px, 96vw)",
-    height: "85vh",
+    width: "min(960px, 96vw)",
+    height: "82vh",
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
-    /* Reset all inherited styles to prevent CSS leaking from parent */
-    all: "initial",
-    fontFamily: FONT,
-    fontSize: FONT_SIZE,
+    fontFamily: F,
+    fontSize: FS,
     color: "#d4d4d4",
-    boxSizing: "border-box",
   },
   header: {
     display: "flex",
@@ -235,11 +294,7 @@ const s = {
     background: "#222",
     flexShrink: 0,
   },
-  headerLeft: { display: "flex", alignItems: "center", gap: 8 },
-  headerRight: { display: "flex", alignItems: "center", gap: 12 },
-  path: { fontSize: 12, color: "#666" },
-  fname: { fontSize: 14, color: "#e0e0e0", fontWeight: 700 },
-  langBadge: {
+  badge: {
     fontSize: 10,
     color: "#4a9eff",
     background: "#0d1f35",
@@ -248,8 +303,8 @@ const s = {
     padding: "2px 7px",
     textTransform: "uppercase",
     fontWeight: 600,
+    flexShrink: 0,
   },
-  hint: { fontSize: 11, color: "#555" },
   saveBtn: {
     padding: "6px 14px",
     background: "#1a6ef5",
@@ -258,7 +313,7 @@ const s = {
     borderRadius: 5,
     cursor: "pointer",
     fontSize: 12,
-    fontFamily: FONT,
+    fontFamily: F,
     fontWeight: 600,
   },
   closeBtn: {
@@ -267,14 +322,13 @@ const s = {
     color: "#666",
     cursor: "pointer",
     fontSize: 16,
-    fontFamily: FONT,
+    fontFamily: F,
   },
-  editorWrap: {
+  body: {
     flex: 1,
     display: "flex",
     overflow: "hidden",
     background: "#1a1a1a",
-    position: "relative",
   },
   lineNums: {
     padding: "14px 0",
@@ -283,68 +337,47 @@ const s = {
     textAlign: "right",
     flexShrink: 0,
     userSelect: "none",
-    overflowY: "hidden",
+    overflow: "hidden",
     minWidth: 52,
   },
-  lineNum: {
-    fontSize: FONT_SIZE,
-    lineHeight: String(LINE_H),
+  ln: {
+    fontSize: FS,
+    lineHeight: LH,
     color: "#444",
     paddingRight: 12,
     paddingLeft: 8,
-    fontFamily: FONT,
+    fontFamily: F,
   },
-  codeArea: {
+  codeOuter: {
     flex: 1,
-    position: "relative",
-    overflow: "hidden",
+    overflow: "auto",
+    background: "#1a1a1a",
   },
-  highlight: {
-    position: "absolute",
-    inset: 0,
-    margin: 0,
+  editor: {
+    // contentEditable div — acts as both display and input
     padding: "14px 16px",
-    fontSize: FONT_SIZE,
-    lineHeight: String(LINE_H),
-    fontFamily: FONT,
+    fontFamily: F,
+    fontSize: FS,
+    lineHeight: LH,
+    tabSize: 4,
+    MozTabSize: 4,
+    whiteSpace: "pre",
+    wordWrap: "normal",
+    overflowWrap: "normal",
     color: "#d4d4d4",
     background: "transparent",
-    pointerEvents: "none",
-    overflow: "hidden",
-    whiteSpace: "pre",
-    wordBreak: "normal",
-    zIndex: 1,
-    /* Explicitly prevent CSS leaking */
-    boxSizing: "border-box",
     border: "none",
     outline: "none",
+    minHeight: "100%",
+    // Reset anything that might leak from global CSS
+    margin: 0,
+    letterSpacing: "normal",
+    textIndent: 0,
+    textAlign: "left",
     textDecoration: "none",
     textTransform: "none",
-    letterSpacing: "normal",
-    tabSize: 4,
-  },
-  textarea: {
-    position: "absolute",
-    inset: 0,
-    padding: "14px 16px",
-    fontSize: FONT_SIZE,
-    lineHeight: String(LINE_H),
-    fontFamily: FONT,
-    background: "transparent",
-    color: "transparent",
-    caretColor: "#fff",
-    border: "none",
-    outline: "none",
+    listStyleType: "none",
+    boxSizing: "content-box",
     resize: "none",
-    overflow: "auto",
-    whiteSpace: "pre",
-    wordBreak: "normal",
-    zIndex: 2,
-    /* Explicitly prevent CSS leaking */
-    boxSizing: "border-box",
-    textDecoration: "none",
-    textTransform: "none",
-    letterSpacing: "normal",
-    tabSize: 4,
   },
 };
