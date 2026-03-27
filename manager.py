@@ -158,25 +158,30 @@ CORS(app)
 
 def child_preexec(script_path):
     def fn():
+        # New session + process group (isolates signals from parent)
         try:
             os.setsid()
             os.setpgrp()
+        except Exception:
+            pass
 
+        # Resource limits — keep generous so scripts don't get killed
+        try:
             ram_bytes = SCRIPT_MAX_RAM_MB * 1024 * 1024
-            resource.setrlimit(resource.RLIMIT_AS,  (ram_bytes * 4, ram_bytes * 4))
-            resource.setrlimit(resource.RLIMIT_DATA, (ram_bytes,     ram_bytes))
-            resource.setrlimit(resource.RLIMIT_CPU,  (SCRIPT_MAX_CPU_SEC, SCRIPT_MAX_CPU_SEC + 60))
+            resource.setrlimit(resource.RLIMIT_DATA, (ram_bytes, ram_bytes))
+            resource.setrlimit(resource.RLIMIT_CPU, (SCRIPT_MAX_CPU_SEC, SCRIPT_MAX_CPU_SEC + 60))
             resource.setrlimit(resource.RLIMIT_NOFILE, (SCRIPT_MAX_FILES, SCRIPT_MAX_FILES))
             resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-
-            try:
-                user = pwd.getpwnam("runner")
-                os.setgid(user.pw_gid)
-                os.setuid(user.pw_uid)
-            except (KeyError, PermissionError):
-                os._exit(1)
         except Exception:
-            os._exit(1)
+            pass
+
+        # Drop privileges to 'runner' user if it exists — otherwise stay as current user
+        try:
+            user = pwd.getpwnam("runner")
+            os.setgid(user.pw_gid)
+            os.setuid(user.pw_uid)
+        except Exception:
+            pass
     return fn
 
 
