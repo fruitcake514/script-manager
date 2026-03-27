@@ -356,22 +356,80 @@ def get_ports(script_name):
     proc = processes.get(script_name)
     if not proc or proc.poll() is not None:
         return []
+
+    # Collect PIDs in the process tree
+    tree_pids = {proc.pid}
     try:
-        # Collect all PIDs in the process tree
-        tree_pids = {proc.pid}
-        try:
-            for child in psutil.Process(proc.pid).children(recursive=True):
-                tree_pids.add(child.pid)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
-        # Get all LISTEN ports owned by any PID in the tree
-        ports = set()
+        for child in psutil.Process(proc.pid).children(recursive=True):
+            tree_pids.add(child.pid)
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
+
+    ports = set()
+
+    # Method 1: psutil.net_connections
+    try:
         for conn in psutil.net_connections(kind="inet"):
             if conn.status == "LISTEN" and conn.pid in tree_pids:
                 ports.add(conn.laddr.port)
-        return list(ports)
+        if ports:
+            return list(ports)
     except Exception:
-        return []
+        pass
+
+    # Method 2: read /proc/net/tcp directly (hex port, inode-based)
+    try:
+        # Build set of socket inodes owned by our PIDs
+        inodes = set()
+        for pid in tree_pids:
+            fd_dir = f"/proc/{pid}/fd"
+            try:
+                for fd in os.listdir(fd_dir):
+                    try:
+                        link = os.readlink(os.path.join(fd_dir, fd))
+                        if link.startswith("socket:["):
+                            inodes.add(link[8:-1])
+                    except (OSError, ValueError):
+                        pass
+            except (OSError, PermissionError):
+                pass
+
+        # Parse /proc/net/tcp for LISTEN entries matching our inodes
+        with open("/proc/net/tcp", "r") as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) < 10 or parts[0] == "sl:":
+                    continue
+                # state 0x0A = LISTEN
+                if parts[3] == "0A" and parts[9] in inodes:
+                    ports.add(int(parts[1].split(":")[1], 16))
+        if ports:
+            return list(ports)
+    except Exception:
+        pass
+
+    # Method 3: parse `ss` output
+    try:
+        result = subprocess.run(
+            ["ss", "-tlnp"],
+            capture_output=True, text=True, timeout=3,
+        )
+        for line in result.stdout.splitlines():
+            for pid in tree_pids:
+                if f'pid={pid}' in line or f'pid={pid},' in line:
+                    # Extract port from Local Address column (e.g. "0.0.0.0:8080")
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        addr = parts[3]
+                        port_str = addr.rsplit(":", 1)[-1]
+                        if port_str.isdigit():
+                            ports.add(int(port_str))
+        if ports:
+            return list(ports)
+    except Exception:
+        pass
+
+    return list(ports)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
