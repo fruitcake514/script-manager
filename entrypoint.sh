@@ -10,19 +10,18 @@ case "$PGID" in ''|*[!0-9]*) PGID=1000 ;; esac
 
 echo "[entrypoint] Setting up with PUID=$PUID, PGID=$PGID"
 
-# Clean up any existing 'runner' user/group
-deluser runner 2>/dev/null || true
-delgroup runner 2>/dev/null || true
+# Remove existing runner so we can recreate with correct IDs
+userdel runner 2>/dev/null || true
+groupdel runner 2>/dev/null || true
 
-# Create the group with the requested GID
-addgroup -g "$PGID" runner 2>/dev/null || addgroup runner 2>/dev/null || true
-
-# Create the user with the requested UID, primary group 'runner'
-adduser -D -u "$PUID" -G runner runner 2>/dev/null || adduser -D runner 2>/dev/null || true
+# Create group and user with requested IDs
+addgroup -g "$PGID" runner
+adduser -D -u "$PUID" -G runner runner
 
 # Ensure directories exist with correct ownership
 mkdir -p /scripts /data
-chown runner:runner /scripts /data 2>/dev/null || true
+chown runner:runner /scripts /data
 
-echo "[entrypoint] Directories configured. PUID=$PUID, PGID=$PGID"
+id runner
+echo "[entrypoint] Setup complete. Starting manager..."
 exec "$@"
