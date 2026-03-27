@@ -354,25 +354,24 @@ def get_status(script_name):
 
 def get_ports(script_name):
     proc = processes.get(script_name)
-    ports = []
-    if proc and proc.poll() is None:
+    if not proc or proc.poll() is not None:
+        return []
+    try:
+        # Collect all PIDs in the process tree
+        tree_pids = {proc.pid}
         try:
-            p = psutil.Process(proc.pid)
-            procs = [p]
-            try:
-                procs.extend(p.children(recursive=True))
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-            for child in procs:
-                try:
-                    for c in child.connections(kind="inet"):
-                        if c.status == "LISTEN":
-                            ports.append(c.laddr.port)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
-        except Exception:
+            for child in psutil.Process(proc.pid).children(recursive=True):
+                tree_pids.add(child.pid)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
-    return list(set(ports))
+        # Get all LISTEN ports owned by any PID in the tree
+        ports = set()
+        for conn in psutil.net_connections(kind="inet"):
+            if conn.status == "LISTEN" and conn.pid in tree_pids:
+                ports.add(conn.laddr.port)
+        return list(ports)
+    except Exception:
+        return []
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
