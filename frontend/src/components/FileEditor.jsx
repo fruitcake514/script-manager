@@ -12,160 +12,98 @@ function getLanguage(filename) {
   return "text";
 }
 
-function escHtml(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function esc(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function highlightLine(line, tokens) {
-  if (!tokens || tokens.length === 0) return escHtml(line);
-
-  // Build flat array of { start, end, color } for all matches
-  const spans = [];
-  let html = escHtml(line);
-
-  tokens.forEach(({ pattern, color }) => {
-    const re = new RegExp(pattern.source, "g");
-    let m;
-    while ((m = re.exec(html)) !== null) {
-      const full = m[0];
-      const g1 = m[1];
-      if (g1 !== undefined) {
-        // Find where g1 starts within the full match in the html string
-        const g1InFull = full.indexOf(g1);
-        const g1Start = m.index + g1InFull;
-        const g1End = g1Start + g1.length;
-        spans.push({ start: g1Start, end: g1End, color });
-      } else {
-        spans.push({ start: m.index, end: m.index + full.length, color });
-      }
-    }
-  });
-
-  if (spans.length === 0) return html;
-
-  // Sort by start position, then by length (longer first for same start)
-  spans.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
-
-  // Remove overlapping spans — keep first match at each position
-  const filtered = [];
-  let lastEnd = -1;
-  for (const sp of spans) {
-    if (sp.start >= lastEnd) {
-      filtered.push(sp);
-      lastEnd = sp.end;
-    }
-  }
-
-  // Build result string
-  let result = "";
-  let pos = 0;
-  for (const sp of filtered) {
-    if (sp.start > pos) result += html.slice(pos, sp.start);
-    result += `<span style="color:${sp.color}">` + html.slice(sp.start, sp.end) + `</span>`;
-    pos = sp.end;
-  }
-  if (pos < html.length) result += html.slice(pos);
-  return result;
-}
-
-function syntaxHighlight(code, lang) {
+function highlight(code, lang) {
   const lines = code.split("\n");
   let tokens = null;
   if (lang === "python") {
     tokens = [
-      { pattern: /(#[^\n]*)/, color: "#6a9955" },
-      { pattern: /("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/, color: "#ce9178" },
-      { pattern: /\b(def|class|import|from|return|if|elif|else|for|while|try|except|finally|with|as|pass|break|continue|raise|yield|lambda|not|and|or|in|is|None|True|False|global|nonlocal|del|assert|async|await)\b/, color: "#569cd6" },
-      { pattern: /\b([A-Z][A-Za-z0-9_]*)\b/, color: "#4ec9b0" },
-      { pattern: /\b(\d+\.?\d*)\b/, color: "#b5cea8" },
-      { pattern: /\b([a-z_][a-z0-9_]*)\s*(?=\()/, color: "#dcdcaa" },
+      { re: /(#[^\n]*)/, c: "#6a9955" },
+      { re: /("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/, c: "#ce9178" },
+      { re: /\b(def|class|import|from|return|if|elif|else|for|while|try|except|finally|with|as|pass|break|continue|raise|yield|lambda|not|and|or|in|is|None|True|False|global|nonlocal|del|assert|async|await)\b/, c: "#569cd6" },
+      { re: /\b([A-Z][A-Za-z0-9_]*)\b/, c: "#4ec9b0" },
+      { re: /\b(\d+\.?\d*)\b/, c: "#b5cea8" },
+      { re: /\b([a-z_][a-z0-9_]*)\s*(?=\()/, c: "#dcdcaa" },
     ];
   } else if (lang === "json") {
     tokens = [
-      { pattern: /("(?:[^"\\]|\\.)*")(\s*:)/, color: "#9cdcfe" },
-      { pattern: /:\s*("(?:[^"\\]|\\.)*")/, color: "#ce9178" },
-      { pattern: /\b(true|false|null)\b/, color: "#569cd6" },
-      { pattern: /\b(\d+\.?\d*)\b/, color: "#b5cea8" },
+      { re: /("(?:[^"\\]|\\.)*")(\s*:)/, c: "#9cdcfe" },
+      { re: /:\s*("(?:[^"\\]|\\.)*")/, c: "#ce9178" },
+      { re: /\b(true|false|null)\b/, c: "#569cd6" },
+      { re: /\b(\d+\.?\d*)\b/, c: "#b5cea8" },
     ];
   }
-  return lines.map((line) => highlightLine(line, tokens)).join("\n");
+  return lines.map((line) => hlLine(line, tokens)).join("\n");
+}
+
+function hlLine(line, tokens) {
+  if (!tokens) return esc(line);
+  // Find all matches with positions
+  const spans = [];
+  const src = esc(line);
+  for (const { re, c: color } of tokens) {
+    const rx = new RegExp(re.source, "g");
+    let m;
+    while ((m = rx.exec(src)) !== null) {
+      const g = m[1];
+      if (g !== undefined) {
+        const gi = m[0].indexOf(g);
+        spans.push({ s: m.index + gi, e: m.index + gi + g.length, c: color });
+      } else {
+        spans.push({ s: m.index, e: m.index + m[0].length, c: color });
+      }
+    }
+  }
+  if (!spans.length) return src;
+  // Sort, deduplicate overlapping
+  spans.sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s));
+  const kept = [];
+  let end = -1;
+  for (const sp of spans) {
+    if (sp.s >= end) { kept.push(sp); end = sp.e; }
+  }
+  // Build output
+  let out = "", pos = 0;
+  for (const sp of kept) {
+    if (sp.s > pos) out += src.slice(pos, sp.s);
+    out += `<span style="color:${sp.c}">` + src.slice(sp.s, sp.e) + "</span>";
+    pos = sp.e;
+  }
+  if (pos < src.length) out += src.slice(pos);
+  return out;
 }
 
 // ── Editor ───────────────────────────────────────────────────────────────────
+
+const F = "'JetBrains Mono', 'Fira Mono', 'Consolas', 'Courier New', monospace";
+const FS = 13;
+const LH = 1.65;
 
 export default function FileEditor({ scriptName, filename, onClose }) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
-  const editorRef = useRef(null);
-  const syncRef = useRef(null); // prevents cursor jump during highlight sync
+  const ta = useRef(null);
+  const pre = useRef(null);
+  const ln = useRef(null);
   const lang = getLanguage(filename);
 
   useEffect(() => {
     fetch(`/api/scripts/${scriptName}/files/${filename}`)
       .then((r) => r.json())
-      .then((d) => {
-        setContent(d.content || "");
-        setLoading(false);
-      });
+      .then((d) => { setContent(d.content || ""); setLoading(false); });
   }, [scriptName, filename]);
 
-  // Render highlighted HTML into the editor div
-  const renderHighlight = useCallback(() => {
-    const el = editorRef.current;
-    if (!el) return;
-    const sel = window.getSelection();
-    const savedRange = sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
-
-    el.innerHTML = syntaxHighlight(content, lang) + "\n";
-
-    // Restore cursor position after innerHTML replacement
-    if (savedRange) {
-      try {
-        sel.removeAllRanges();
-        sel.addRange(savedRange);
-      } catch (e) {
-        // cursor restore failed — place at end
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        range.collapse(false);
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
-    }
-  }, [content, lang]);
-
-  useEffect(() => {
-    if (!loading) {
-      // Initial render
-      const el = editorRef.current;
-      if (el) {
-        el.textContent = content;
-        renderHighlight();
-      }
-    }
-  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Re-highlight on content change (debounced via rAF)
-  useEffect(() => {
-    if (loading) return;
-    if (syncRef.current) cancelAnimationFrame(syncRef.current);
-    syncRef.current = requestAnimationFrame(renderHighlight);
-  }, [content, renderHighlight, loading]);
-
-  const onInput = useCallback(() => {
-    const el = editorRef.current;
-    if (!el) return;
-    // Get plain text from contentEditable
-    const text = el.innerText;
-    // Remove trailing newline that contentEditable adds
-    const clean = text.endsWith("\n") ? text.slice(0, -1) : text;
-    setContent(clean);
+  // Sync scroll from textarea → pre + line nums
+  const syncScroll = useCallback(() => {
+    const t = ta.current;
+    if (!t) return;
+    if (pre.current) { pre.current.scrollTop = t.scrollTop; pre.current.scrollLeft = t.scrollLeft; }
+    if (ln.current) ln.current.scrollTop = t.scrollTop;
   }, []);
 
   const save = async () => {
@@ -180,22 +118,18 @@ export default function FileEditor({ scriptName, filename, onClose }) {
     setTimeout(() => setMsg(null), 2000);
   };
 
-  const onKeyDown = useCallback(
-    (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        save();
-      }
-      // Tab inserts 4 spaces
-      if (e.key === "Tab") {
-        e.preventDefault();
-        document.execCommand("insertText", false, "    ");
-      }
-    },
-    [save]
-  );
+  const onKey = useCallback((e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const s = e.target.selectionStart, end = e.target.selectionEnd;
+      const next = content.substring(0, s) + "    " + content.substring(end);
+      setContent(next);
+      requestAnimationFrame(() => { ta.current.selectionStart = ta.current.selectionEnd = s + 4; });
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save(); }
+  }, [content, save]);
 
-  const lineCount = content.split("\n").length;
+  const lines = content.split("\n").length;
 
   return (
     <div style={S.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -204,49 +138,40 @@ export default function FileEditor({ scriptName, filename, onClose }) {
         <div style={S.header}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
             <span style={{ fontSize: 12, color: "#666", flexShrink: 0 }}>{scriptName} / </span>
-            <span style={{ fontSize: 14, color: "#e0e0e0", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {filename}
-            </span>
+            <span style={S.fname}>{filename}</span>
             <span style={S.badge}>{lang}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-            {msg && (
-              <span style={{ color: msg === "Saved" ? "#34d399" : "#f87171", fontSize: 13 }}>
-                {msg === "Saved" ? "✓" : "✗"} {msg}
-              </span>
-            )}
-            <span style={{ fontSize: 11, color: "#555" }}>Ctrl+S · Tab = 4 spaces</span>
-            <button style={S.saveBtn} onClick={save} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </button>
+            {msg && <span style={{ color: msg === "Saved" ? "#34d399" : "#f87171", fontSize: 13 }}>{msg === "Saved" ? "✓" : "✗"} {msg}</span>}
+            <span style={{ fontSize: 11, color: "#555" }}>Ctrl+S · Tab=4</span>
+            <button style={S.saveBtn} onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
             <button style={S.closeBtn} onClick={onClose}>✕</button>
           </div>
         </div>
 
-        {/* Editor body */}
-        {loading ? (
-          <div style={{ padding: 20, color: "#555", fontSize: 13 }}>Loading…</div>
-        ) : (
+        {loading ? <div style={{ padding: 20, color: "#555", fontSize: 13 }}>Loading…</div> : (
           <div style={S.body}>
-            {/* Line numbers */}
-            <div style={S.lineNums}>
-              {Array.from({ length: lineCount }, (_, i) => (
-                <div key={i} style={S.ln}>{i + 1}</div>
-              ))}
+            {/* Line numbers — synced scroll via JS */}
+            <div ref={ln} style={S.lnCol}>
+              {Array.from({ length: lines }, (_, i) => <div key={i} style={S.ln}>{i + 1}</div>)}
             </div>
 
-            {/* Editable code area */}
-            <div style={S.codeOuter}>
-              <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onInput={onInput}
-                onKeyDown={onKeyDown}
+            {/* Code area */}
+            <div style={S.codeWrap}>
+              {/* Highlight layer behind */}
+              <pre ref={pre} style={S.pre} dangerouslySetInnerHTML={{ __html: highlight(content, lang) + "\n" }} aria-hidden="true" />
+              {/* Textarea on top — transparent text, visible caret */}
+              <textarea
+                ref={ta}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                onKeyDown={onKey}
+                onScroll={syncScroll}
                 spellCheck={false}
-                autoCorrect="off"
                 autoCapitalize="off"
-                style={S.editor}
+                autoCorrect="off"
+                wrap="off"
+                style={S.ta}
               />
             </div>
           </div>
@@ -256,128 +181,66 @@ export default function FileEditor({ scriptName, filename, onClose }) {
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
-
-const F = "'JetBrains Mono', 'Fira Mono', 'Consolas', 'Courier New', monospace";
-const FS = 13;
-const LH = "20.8px"; // 13 * 1.6 = 20.8 — explicit pixel value for perfect alignment
+// ── Styles — no all:initial, explicit resets on editor elements only ─────────
 
 const S = {
   overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.88)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 200,
+    position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)",
+    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200,
   },
   modal: {
-    background: "#1a1a1a",
-    border: "1px solid #333",
-    borderRadius: 10,
-    width: "min(960px, 96vw)",
-    height: "82vh",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-    fontFamily: F,
-    fontSize: FS,
-    color: "#d4d4d4",
+    background: "#1a1a1a", border: "1px solid #333", borderRadius: 10,
+    width: "min(960px, 96vw)", height: "82vh",
+    display: "flex", flexDirection: "column", overflow: "hidden",
+    fontFamily: F, fontSize: FS, color: "#d4d4d4",
   },
   header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "10px 16px",
-    borderBottom: "1px solid #2a2a2a",
-    background: "#222",
-    flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "10px 16px", borderBottom: "1px solid #2a2a2a", background: "#222", flexShrink: 0,
   },
+  fname: { fontSize: 14, color: "#e0e0e0", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   badge: {
-    fontSize: 10,
-    color: "#4a9eff",
-    background: "#0d1f35",
-    border: "1px solid #1a3a5c",
-    borderRadius: 4,
-    padding: "2px 7px",
-    textTransform: "uppercase",
-    fontWeight: 600,
-    flexShrink: 0,
+    fontSize: 10, color: "#4a9eff", background: "#0d1f35", border: "1px solid #1a3a5c",
+    borderRadius: 4, padding: "2px 7px", textTransform: "uppercase", fontWeight: 600, flexShrink: 0,
   },
   saveBtn: {
-    padding: "6px 14px",
-    background: "#1a6ef5",
-    color: "#fff",
-    border: "none",
-    borderRadius: 5,
-    cursor: "pointer",
-    fontSize: 12,
-    fontFamily: F,
-    fontWeight: 600,
+    padding: "6px 14px", background: "#1a6ef5", color: "#fff", border: "none",
+    borderRadius: 5, cursor: "pointer", fontSize: 12, fontFamily: F, fontWeight: 600,
   },
-  closeBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#666",
-    cursor: "pointer",
-    fontSize: 16,
-    fontFamily: F,
+  closeBtn: { background: "transparent", border: "none", color: "#666", cursor: "pointer", fontSize: 16, fontFamily: F },
+  body: { flex: 1, display: "flex", overflow: "hidden", background: "#1a1a1a" },
+  lnCol: {
+    padding: "14px 0", background: "#161616", borderRight: "1px solid #2a2a2a",
+    textAlign: "right", flexShrink: 0, userSelect: "none", overflow: "hidden", minWidth: 52,
   },
-  body: {
-    flex: 1,
-    display: "flex",
-    overflow: "hidden",
-    background: "#1a1a1a",
+  ln: { fontSize: FS, lineHeight: String(LH), color: "#444", paddingRight: 12, paddingLeft: 8, fontFamily: F },
+  codeWrap: { flex: 1, position: "relative", overflow: "hidden" },
+
+  // Shared font properties — textarea and pre MUST match exactly
+  pre: {
+    position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+    margin: 0, padding: "14px 16px",
+    fontFamily: F, fontSize: FS, lineHeight: String(LH), tabSize: 4,
+    whiteSpace: "pre", wordWrap: "normal", overflowWrap: "normal",
+    color: "#d4d4d4", background: "#1a1a1a",
+    pointerEvents: "none", overflow: "hidden", zIndex: 1,
+    boxSizing: "border-box", border: "none", outline: "none",
+    letterSpacing: "normal", textIndent: 0, textDecoration: "none",
+    // Override any leaking global styles
+    display: "block", float: "none", clear: "none",
+    verticalAlign: "baseline", textAlign: "left",
   },
-  lineNums: {
-    padding: "14px 0",
-    background: "#161616",
-    borderRight: "1px solid #2a2a2a",
-    textAlign: "right",
-    flexShrink: 0,
-    userSelect: "none",
-    overflow: "hidden",
-    minWidth: 52,
-  },
-  ln: {
-    fontSize: FS,
-    lineHeight: LH,
-    color: "#444",
-    paddingRight: 12,
-    paddingLeft: 8,
-    fontFamily: F,
-  },
-  codeOuter: {
-    flex: 1,
-    overflow: "auto",
-    background: "#1a1a1a",
-  },
-  editor: {
-    // contentEditable div — acts as both display and input
+  ta: {
+    position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
     padding: "14px 16px",
-    fontFamily: F,
-    fontSize: FS,
-    lineHeight: LH,
-    tabSize: 4,
-    MozTabSize: 4,
-    whiteSpace: "pre",
-    wordWrap: "normal",
-    overflowWrap: "normal",
-    color: "#d4d4d4",
-    background: "transparent",
-    border: "none",
-    outline: "none",
-    minHeight: "100%",
-    // Reset anything that might leak from global CSS
-    margin: 0,
-    letterSpacing: "normal",
-    textIndent: 0,
-    textAlign: "left",
-    textDecoration: "none",
-    textTransform: "none",
-    listStyleType: "none",
-    boxSizing: "content-box",
-    resize: "none",
+    fontFamily: F, fontSize: FS, lineHeight: String(LH), tabSize: 4,
+    whiteSpace: "pre", wordWrap: "normal", overflowWrap: "normal",
+    color: "transparent", caretColor: "#fff", background: "transparent",
+    border: "none", outline: "none", resize: "none",
+    overflow: "auto", zIndex: 2,
+    boxSizing: "border-box",
+    letterSpacing: "normal", textIndent: 0, textDecoration: "none",
+    display: "block", float: "none", clear: "none",
+    verticalAlign: "baseline", textAlign: "left",
   },
 };
