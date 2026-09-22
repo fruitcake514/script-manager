@@ -20,6 +20,7 @@ import os
 import re
 import sys
 import time
+import platform
 import json
 import hmac
 import hashlib
@@ -477,20 +478,67 @@ def _runner_env(base=None):
     return env
 
 
-def create_venv(script_path):
+VENV_FINGERPRINT_FILE = ".pyrunner-venv.json"
+
+
+def _runtime_fingerprint():
+    """Identifies the interpreter+libc a venv's compiled wheels were built
+    for. A venv created under Alpine/musl (or another Python minor) serves
+    broken native extensions under Debian/glibc — classic symptom:
+    `No module named 'pydantic_core._pydantic_core'`."""
+    try:
+        libc = "%s/%s" % platform.libc_ver()
+    except Exception:
+        libc = "unknown"
+    return {"python": sys.version.split()[0], "libc": libc,
+            "exe": os.path.realpath(sys.executable)}
+
+
+def create_venv(script_path, script_name=None):
     venv_path = os.path.join(script_path, VENV_DIR_NAME)
-    if not os.path.exists(os.path.join(venv_path, "bin", "python")):
-        # Absolute interpreter: privilege wrappers (setpriv/runuser) must not
-        # rely on PATH resolution after the uid switch.
+    fp_path = os.path.join(venv_path, VENV_FINGERPRINT_FILE)
+    sname = script_name or os.path.basename(script_path)
+
+    def _build():
         cmd, _home = _as_runner([sys.executable, "-m", "venv", venv_path])
         r = subprocess.run(cmd, check=False, timeout=300,
                            capture_output=True, text=True,
                            env=_runner_env({"PYTHONDONTWRITEBYTECODE": "1"}))
         if r.returncode != 0:
-            _append_log(os.path.basename(script_path),
-                        "[manager] venv creation failed: %s\n"
+            _append_log(sname, "[manager] venv creation failed: %s\n"
                         % (r.stderr or r.stdout or "rc=%d" % r.returncode)[-1500:])
+            return False
+        try:
+            with open(fp_path, "w") as f:
+                json.dump(_runtime_fingerprint(), f)
+        except OSError:
+            pass
         _chown_runner(venv_path)
+        return True
+
+    if os.path.exists(os.path.join(venv_path, "bin", "python")):
+        # Venv present — but is it for THIS runtime? Old venvs (Alpine/musl,
+        # other Python minor) poison restarts with broken native wheels while
+        # pip reports "already satisfied". Missing fingerprint == legacy venv.
+        try:
+            with open(fp_path) as f:
+                old_fp = json.load(f)
+        except Exception:
+            old_fp = None
+        if old_fp != _runtime_fingerprint():
+            _append_log(sname, "[manager] runtime changed (venv fingerprint mismatch) — "
+                               "rebuilding venv from requirements.txt...\n")
+            try:
+                shutil.rmtree(venv_path, ignore_errors=False)
+            except Exception as e:
+                _append_log(sname, "[manager] venv removal failed: %s\n" % e)
+                return venv_path
+            _req_hash.pop(sname, None)  # force full pip reinstall into fresh venv
+            _build()
+        return venv_path
+
+    _req_hash.pop(sname, None)
+    _build()
     return venv_path
 
 
@@ -835,7 +883,7 @@ def run_script(script_name):
 
     def _setup_and_loop():
         try:
-            venv_path = create_venv(script_path)
+            venv_path = create_venv(script_path, script_name)
             install_requirements(venv_path, script_path, script_name)
         except Exception as e:
             _append_log(script_name, "[manager] setup failed: %s\n" % e)
@@ -1362,6 +1410,25 @@ def api_restart(name: str, _: None = Depends(need_auth)):
     time.sleep(1)
     run_script(name)
     return {"status": "restarting"}
+
+
+@app.post("/api/scripts/{name}/rebuild-venv")
+def api_rebuild_venv(name: str, _: None = Depends(need_auth)):
+    """Stop, delete the venv (stale/broken wheels, wrong runtime), and start
+    fresh from requirements.txt. Use after base-image upgrades or when an app
+    crash-loops on ImportError from site-packages."""
+    need_name(name)
+    stop_script(name)
+    time.sleep(1)
+    venv_path = os.path.join(SCRIPTS_DIR, name, VENV_DIR_NAME)
+    scripts_real = os.path.realpath(SCRIPTS_DIR)
+    if os.path.realpath(venv_path).startswith(scripts_real + os.sep):
+        shutil.rmtree(venv_path, ignore_errors=True)
+    _req_hash.pop(name, None)
+    _stats_cache.pop(name, None)
+    _ports_cache.pop(name, None)
+    run_script(name)
+    return {"status": "rebuilding"}
 
 
 @app.get("/api/scripts/{name}/meta")
