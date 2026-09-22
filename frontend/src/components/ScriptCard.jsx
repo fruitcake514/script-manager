@@ -174,6 +174,13 @@ export default function ScriptCard({ script, refresh }) {
           )}
           <button style={s.btnIcon} onClick={() => setShowScheduler(true)} title="Schedules">🕐</button>
           <button
+            style={s.btnIcon}
+            onClick={() => { action("rebuild-venv"); notify("Rebuilding venv…"); }}
+            title="Delete the venv and reinstall from requirements.txt (fixes broken native packages after base-image upgrades)"
+          >
+            ⟳ venv
+          </button>
+          <button
             style={{ ...s.btnIcon, color: confirmDelete ? "#ff4444" : "#6b7280", borderColor: confirmDelete ? "#ff4444" : "#2a2a2a" }}
             onClick={handleDelete}
             title={confirmDelete ? "Click again to confirm delete" : "Delete script"}
