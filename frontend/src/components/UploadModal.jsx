@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { apiFetch, encName } from "../api";
 
 export default function UploadModal({ scriptName, onClose }) {
   const [file, setFile] = useState(null);
@@ -11,7 +12,7 @@ export default function UploadModal({ scriptName, onClose }) {
     setUploading(true);
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch(`/api/scripts/${scriptName}/upload`, { method: "POST", body: fd });
+    const res = await apiFetch(`/api/scripts/${encName(scriptName)}/upload`, { method: "POST", body: fd });
     const data = await res.json();
     setUploading(false);
     if (res.ok) {

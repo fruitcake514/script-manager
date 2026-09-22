@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { apiFetch, apiJson, encName } from "../api";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const ACTIONS = ["start", "stop", "restart"];
@@ -42,8 +43,9 @@ export default function SchedulerModal({ scriptName, onClose }) {
   }, []);
 
   const fetchSchedules = async () => {
-    const res = await fetch(`/api/scripts/${scriptName}/schedules`);
-    setSchedules(await res.json());
+    try {
+      setSchedules(await apiJson(`/api/scripts/${encName(scriptName)}/schedules`));
+    } catch { setSchedules([]); }
   };
 
   const openNew = () => {
@@ -85,13 +87,13 @@ export default function SchedulerModal({ scriptName, onClose }) {
 
     let res;
     if (editing === "new") {
-      res = await fetch(`/api/scripts/${scriptName}/schedules`, {
+      res = await apiFetch(`/api/scripts/${encName(scriptName)}/schedules`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
     } else {
-      res = await fetch(`/api/scripts/${scriptName}/schedules/${editing.id}`, {
+      res = await apiFetch(`/api/scripts/${encName(scriptName)}/schedules/${encodeURIComponent(editing.id)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -108,12 +110,12 @@ export default function SchedulerModal({ scriptName, onClose }) {
   };
 
   const del = async (id) => {
-    await fetch(`/api/scripts/${scriptName}/schedules/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/scripts/${encName(scriptName)}/schedules/${encodeURIComponent(id)}`, { method: "DELETE" });
     await fetchSchedules();
   };
 
   const toggle = async (s) => {
-    await fetch(`/api/scripts/${scriptName}/schedules/${s.id}`, {
+    await apiFetch(`/api/scripts/${encName(scriptName)}/schedules/${encodeURIComponent(s.id)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...s, enabled: !s.enabled }),

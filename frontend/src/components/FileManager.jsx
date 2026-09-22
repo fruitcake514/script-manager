@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { apiFetch, encName, encPath } from "../api";
 
 /* ── Build tree from flat [{path, type}] list ──────────────────────────────── */
 function buildTree(files) {
@@ -57,7 +58,7 @@ function TreeNode({ node, depth, scriptName, onEdit, onDelete, onRefresh }) {
   const createFile = useCallback(async () => {
     if (!newName.trim()) return;
     const path = node.relPath + "/" + newName.trim();
-    await fetch(`/api/scripts/${scriptName}/files/${path}`, {
+    await apiFetch(`/api/scripts/${encName(scriptName)}/files/${encPath(path)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: "" }),
@@ -70,7 +71,7 @@ function TreeNode({ node, depth, scriptName, onEdit, onDelete, onRefresh }) {
   const createFolder = useCallback(async () => {
     if (!newName.trim()) return;
     const path = node.relPath + "/" + newName.trim();
-    await fetch(`/api/scripts/${scriptName}/mkdir`, {
+    await apiFetch(`/api/scripts/${encName(scriptName)}/mkdir`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path }),
@@ -83,7 +84,7 @@ function TreeNode({ node, depth, scriptName, onEdit, onDelete, onRefresh }) {
   const handleDelete = useCallback(async () => {
     const label = isDir ? `folder "${node.relPath}"` : `file "${node.name}"`;
     if (!confirm(`Delete ${label}?`)) return;
-    await fetch(`/api/scripts/${scriptName}/files/${node.relPath}`, { method: "DELETE" });
+    await apiFetch(`/api/scripts/${encName(scriptName)}/files/${encPath(node.relPath)}`, { method: "DELETE" });
     onRefresh();
   }, [isDir, node, scriptName, onRefresh]);
 

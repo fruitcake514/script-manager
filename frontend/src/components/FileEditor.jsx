@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { apiFetch, apiJson, encName, encPath } from "../api";
 
 // ── Syntax highlighting ──────────────────────────────────────────────────────
 
@@ -93,9 +94,9 @@ export default function FileEditor({ scriptName, filename, onClose }) {
   const lang = getLanguage(filename);
 
   useEffect(() => {
-    fetch(`/api/scripts/${scriptName}/files/${filename}`)
-      .then((r) => r.json())
-      .then((d) => { setContent(d.content || ""); setLoading(false); });
+    apiJson(`/api/scripts/${encName(scriptName)}/files/${encPath(filename)}`)
+      .then((d) => { setContent(d.content || ""); setLoading(false); })
+      .catch(() => setLoading(false));
   }, [scriptName, filename]);
 
   // Sync scroll from textarea → pre + line nums
@@ -108,7 +109,7 @@ export default function FileEditor({ scriptName, filename, onClose }) {
 
   const save = async () => {
     setSaving(true);
-    const res = await fetch(`/api/scripts/${scriptName}/files/${filename}`, {
+    const res = await apiFetch(`/api/scripts/${encName(scriptName)}/files/${encPath(filename)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content }),

@@ -11,8 +11,24 @@ while True:
     time.sleep(10)
 `;
 
+const DEFAULT_FLASK = `# Flask service — $PORT is auto-assigned per app
+import os
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.get("/")
+def index():
+    return {"ok": True}
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", "9051"))
+    app.run(host="0.0.0.0", port=port)
+`;
+
 export default function CreateScriptModal({ onClose, onCreate }) {
   const [name, setName] = useState("");
+  const [appType, setAppType] = useState("service");
   const [pyContent, setPyContent] = useState(DEFAULT_PY);
   const [reqContent, setReqContent] = useState("");
   const [activeTab, setActiveTab] = useState("main");
@@ -29,6 +45,7 @@ export default function CreateScriptModal({ onClose, onCreate }) {
     try {
       await onCreate({
         name: name.trim(),
+        app_type: appType,
         python_content: pyContent,
         requirements_content: reqContent,
       });
@@ -61,6 +78,21 @@ export default function CreateScriptModal({ onClose, onCreate }) {
           <small style={styles.hint}>
             Spaces replaced with underscores. Creates <code style={styles.code}>/scripts/{name || "name"}/</code>
           </small>
+        </div>
+
+        <div style={{ ...styles.field, paddingTop: 12 }}>
+          <label style={styles.label}>Type</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[["service", "Service (Flask app, always on, $PORT, no CPU cap)"], ["job", "Job (scheduled/one-shot, CPU cap, stops on exit 0)"]].map(([v, label]) => (
+              <button
+                key={v}
+                style={{ ...styles.typeBtn, ...(appType === v ? styles.typeBtnActive : {}) }}
+                onClick={() => { setAppType(v); if (v === "service") setPyContent(DEFAULT_FLASK); else if (pyContent === DEFAULT_FLASK) setPyContent(DEFAULT_PY); }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div style={styles.tabBar}>
@@ -186,6 +218,19 @@ const styles = {
     fontFamily: "inherit",
   },
   tabActive: { color: "#e0e0e0", borderBottomColor: "#1a6ef5" },
+  typeBtn: {
+    flex: 1,
+    padding: "8px 10px",
+    background: "transparent",
+    border: "1px solid #2a2a2a",
+    color: "#888",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 11,
+    fontFamily: "inherit",
+    textAlign: "left",
+  },
+  typeBtnActive: { borderColor: "#1a6ef5", color: "#b0d4f1", background: "#0d1f35" },
   editor: {
     margin: "0",
     padding: "14px 20px",

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiFetch, encName, encPath } from "../api";
 
 const TEMPLATES = {
   ".py": "# New Python script\n\nprint('Hello!')\n",
@@ -33,7 +34,7 @@ export default function NewFileModal({ scriptName, onClose, subDir }) {
     }
     setSaving(true);
     const path = subDir ? subDir + "/" + filename.trim() : filename.trim();
-    const res = await fetch(`/api/scripts/${scriptName}/files/${path}`, {
+    const res = await apiFetch(`/api/scripts/${encName(scriptName)}/files/${encPath(path)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content }),
