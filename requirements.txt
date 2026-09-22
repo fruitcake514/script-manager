@@ -1,4 +1,4 @@
-flask>=3.0,<4
-flask-cors>=4.0,<5
+fastapi>=0.110,<1
+uvicorn[standard]>=0.29,<1
+python-multipart>=0.0.9,<1
 psutil>=5.9,<7
-# watchdog removed - not used in manager.py

@@ -6,7 +6,10 @@ A self-hosted Docker application for managing, running, and monitoring Python sc
 
 ## Features
 
-- **Web UI** — start, stop, restart, and delete scripts from the browser
+- **Web UI (token-protected)** — start, stop, restart, and delete scripts from the browser (set `API_TOKEN`, enter it once in the UI)
+- **Dashboard header** — running/total counts, aggregate app CPU/RAM, and host CPU/memory via `/api/summary`
+- **Service vs job modes** — services (Flask apps) restart always, get no CPU cap and an auto-assigned `$PORT`; jobs stop on clean exit, get a CPU cap and max 5 crash retries. Toggle per app by clicking its badge.
+- **Automatic port registry** — each app gets a port from `PORT_START`–`PORT_END` (default 9051–9075), injected as `$PORT`/`$ASSIGNED_PORT`. Use `int(os.environ.get("PORT"))` in Flask. Live listeners shown per app.
 - **Live log viewer** — color-coded log output streamed in real time
 - **File editor** — syntax-highlighted in-browser editor with line numbers (Python, JSON, YAML, shell, env)
 - **File manager** — browse, upload, create, and edit any file in a script's folder including subdirectories
@@ -41,12 +44,15 @@ services:
     environment:
       - PUID=xxx
       - PGID=xxx
+      - API_TOKEN=xxx  # generate: openssl rand -hex 32 (required — the UI asks for it)
+      - PORT_START=9051
+      - PORT_END=9075
     ports:
       - "9050:8080"
       - "9051-9075:9051-9075"
     volumes:
       - ./script-manager/scripts:/scripts
-      - ./script-manager/data:/app/data
+      - ./script-manager/data:/data
     restart: unless-stopped
 ```
 
@@ -193,17 +199,26 @@ Each script is limited to **256 open file descriptors**. This prevents a poorly 
 #### Core dumps disabled — `RLIMIT_CORE`
 Core dumps are disabled. A crashing script cannot write a core dump (which could contain sensitive data from memory) to the filesystem.
 
+#### Privilege separation — setup runs unprivileged too
+
+Venv creation and `pip install` run as the unprivileged `runner` user (via `setpriv`/`runuser`), never as root — `requirements.txt` can execute arbitrary code at install time. Files created through the UI are chown'd to `runner` so apps can read/write their own tree. `/data` (schedules, metadata, running state, container storage) is `root:root 0700` so apps cannot read or reprogram the manager's own state.
+
+#### Task limit — `RLIMIT_NPROC`
+
+All apps share one budget of **1024 tasks** (processes + threads, `SCRIPT_MAX_NPROC`) under the shared `runner` UID, bounding fork bombs (the manager itself runs as root and is unaffected). Inner Podman containers intentionally have no NPROC cap — they run as uid 0, which is shared with the manager, so a per-UID task cap would throttle the manager itself.
+
 #### Path traversal protection
+
 All file API endpoints (`/api/scripts/<n>/files/...`) validate that the resolved path stays within the script's own directory using `os.path.realpath`. A request for `../../other_script/secrets.txt` is rejected with a 400 error before any filesystem access occurs.
 
 #### Full process tree cleanup on stop
 When a script is stopped (via UI or restart), the manager kills not just the main Python process but all child processes it spawned using `psutil.Process.children(recursive=True)`. This ensures ports are released immediately and no orphan processes linger.
 
-### What isolation does NOT cover
+### What isolation does NOT cover (subprocess backend)
 
-Scripts share the same container network namespace — they can reach each other on `localhost` if they know each other's ports. If you need complete network isolation between scripts, you would need to run each script in its own container instead.
+Scripts share the same container network namespace — they can reach each other on `localhost` if they know each other's ports. Set `EXEC_BACKEND=auto` (plus the documented container flags) to run services as inner Podman containers instead: each gets its own mount/PID/network namespace and only its assigned port is reachable.
 
-Scripts share the same container filesystem namespace — they can read each other's files in `/scripts` if they hardcode paths. The path traversal protection only applies to the manager's file API, not to what Python code can do directly.
+Scripts share the same container filesystem namespace — they can read each other's files in `/scripts` if they hardcode paths. The path traversal protection only applies to the manager's file API, not to what Python code can do directly. Inner containers only see their own `/app` bind-mount plus the base image.
 
 ---
 
@@ -232,12 +247,14 @@ All endpoints are served by the manager on port 8080 (mapped to 9090 on the host
 ## Architecture
 
 ```
-Container (Docker)
+Container (Docker — NO docker.sock mount, NO host mounts)
 │
-├── manager.py  (Flask, port 8080)
+├── manager.py  (FastAPI on uvicorn, port 8080)
 │   ├── Serves the React frontend (built by Vite at image build time)
-│   ├── Provides the REST API
-│   └── Spawns/monitors script subprocesses
+│   ├── Provides the REST API (token auth via API_TOKEN)
+│   ├── Jobs → venv subprocesses (rlimits, log pipes)
+│   └── Services → inner Podman containers when EXEC_BACKEND=auto
+│       (own mnt/pid/net namespaces, slirp port publish, prlimit caps)
 │
 ├── /app/frontend/build/   (static React app)
 │
@@ -245,17 +262,18 @@ Container (Docker)
     ├── script_a/
     │   ├── main.py
     │   ├── requirements.txt
-    │   └── venv/            (created automatically)
+    │   └── venv/            (subprocess backend only)
     └── script_b/
-        ├── main.py
-        └── venv/
+        └── main.py
 ```
 
-**Frontend:** React 18 + Vite, served as static files by Flask. No separate frontend server.
+**Frontend:** React 18 + Vite, served as static files by FastAPI. No separate frontend server.
 
-**Backend:** Flask 3, psutil for process inspection, flask-cors for development.
+**Backend:** FastAPI + uvicorn (single worker — state is in-memory), psutil for process inspection, pydantic for request validation.
 
-**Build:** Multi-stage Dockerfile — Node 18 Alpine builds the React bundle, Python 3.12 Alpine is the runtime. Final image is ~130–160MB.
+**Execution:** `EXEC_BACKEND=subprocess` (default, zero extra privileges) or `auto` (services in rootless Podman containers *inside* this container; needs the documented `security_opt`/`cap_add`/`devices` flags — the host Docker daemon is never touched).
+
+**Build:** Multi-stage Dockerfile — Node 20 builds the React bundle, Python 3.12-slim + Podman/crun/slirp4netns is the runtime.
 
 ---
 
